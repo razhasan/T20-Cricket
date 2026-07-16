@@ -1940,7 +1940,7 @@
                 targetX: W * 0.48,
                 targetY: H * 0.72,
                 progress: 0,
-                speed: 0.015 + (speed / 100) * 0.035,
+                speed: 0.007 + (speed / 100) * 0.014,
                 bounce: false,
                 bounceY: 0,
                 swing: 0,
@@ -2100,7 +2100,7 @@
                 targetX: W * 0.48,
                 targetY: H * 0.72,
                 progress: 0,
-                speed: 0.015 + (speed / 100) * 0.035,
+                speed: 0.007 + (speed / 100) * 0.014,
                 bounce: false,
                 bounceY: 0,
                 swing: 0,
@@ -2605,24 +2605,41 @@
             }
         }
 
-        // ---------- END MATCH (fallback) ----------
+        // ---------- END MATCH (fallback: target chased before overs/wickets run out) ----------
         function endMatch(winner) {
             if (state.isMatchOver) return;
             state.isMatchOver = true;
-            const userTeam = state.selectedTeam;
-            const isUserWin = winner === userTeam;
-            const winMsg = isUserWin ? `🎉 ${userTeam.toUpperCase()} WINS! 🎉` : `😞 ${userTeam.toUpperCase()} Loses!`;
+
+            // The normal endInnings() flow is what snapshots the live score into
+            // state.innings1 / state.innings2. This fallback fires mid-innings
+            // (target already chased), so that snapshot never happened yet -
+            // do it here or the result screen shows a stale 0/0 for the chasing team.
+            if (state.currentInnings === 1) {
+                state.innings1 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
+                state.innings1Team = state.battingTeam;
+            } else {
+                state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
+                state.innings2Team = state.battingTeam;
+            }
+
+            const t1 = state.innings1Team || state.selectedTeam;
+            const t2 = state.innings2Team || (state.selectedTeam === 'india' ? 'pakistan' : 'india');
+            const s1 = state.innings1;
+            const s2 = state.innings2;
+
+            // winner here is always the chasing team (they reached the target),
+            // so the margin is always "won by N wickets"
+            const wicketsRemaining = 10 - s2.wickets;
+            const winMsg = `🎉 ${winner.toUpperCase()} WON BY ${wicketsRemaining} WICKET${wicketsRemaining !== 1 ? 'S' : ''}! 🎉`;
             document.getElementById('winner-text').textContent = winMsg;
+
             const motm = state.playingXI[0] || { name: 'Player' };
             state.motm = motm.name;
             document.getElementById('motm-name').textContent = motm.name;
             document.getElementById('motm-stats').textContent = `⭐ Man of the Match`;
-            const s1 = state.innings1,
-                s2 = state.innings2;
+
             const overs1 = Math.floor(s1.balls / 6) + '.' + (s1.balls % 6);
             const overs2 = Math.floor(s2.balls / 6) + '.' + (s2.balls % 6);
-            const t1 = state.innings1Team || state.selectedTeam;
-            const t2 = state.innings2Team || (state.selectedTeam === 'india' ? 'pakistan' : 'india');
             document.getElementById('score-summary').innerHTML = `
                 <div><span>${t1.toUpperCase()}</span><span>${s1.runs}/${s1.wickets} (${overs1})</span></div>
                 <div><span>${t2.toUpperCase()}</span><span>${s2.runs}/${s2.wickets} (${overs2})</span></div>
