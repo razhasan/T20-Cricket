@@ -34,7 +34,6 @@
             color: white;
         }
 
-        /* ---------- SCREENS ---------- */
         .screen {
             display: none;
             flex-direction: column;
@@ -44,7 +43,6 @@
             display: flex;
         }
 
-        /* ---------- BUTTONS ---------- */
         .btn {
             background: #f5c842;
             color: #1a2e3f;
@@ -67,6 +65,10 @@
         }
         .btn-secondary {
             background: #2a4055;
+            color: white;
+        }
+        .btn-green {
+            background: #4caf50;
             color: white;
         }
 
@@ -156,6 +158,52 @@
             color: #f5c842;
         }
 
+        /* ---------- TOSS SCREEN ---------- */
+        #toss-screen {
+            text-align: center;
+        }
+        #toss-screen .coin {
+            font-size: 5rem;
+            margin: 10px 0;
+            transition: transform 0.6s;
+        }
+        #toss-screen .coin.flip {
+            animation: flip 0.6s ease-in-out;
+        }
+        @keyframes flip {
+            0% {
+                transform: rotateY(0deg);
+            }
+            50% {
+                transform: rotateY(180deg);
+            }
+            100% {
+                transform: rotateY(360deg);
+            }
+        }
+        .toss-options {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        .toss-options .btn {
+            font-size: 2rem;
+            padding: 10px 30px;
+            min-width: 80px;
+        }
+        .toss-result {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #f5c842;
+        }
+        .toss-decision {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
         /* ---------- GAME SCREEN ---------- */
         #game-screen {
             gap: 6px;
@@ -187,7 +235,6 @@
             cursor: pointer;
         }
 
-        /* Bowling controls */
         .bowl-controls {
             display: flex;
             flex-wrap: wrap;
@@ -228,7 +275,6 @@
             transform: scale(0.9);
         }
 
-        /* Impact map */
         .impact-map {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -256,7 +302,6 @@
             color: white;
         }
 
-        /* Power meter */
         .meter-container {
             width: 100%;
             height: 22px;
@@ -287,7 +332,6 @@
             min-height: 22px;
         }
 
-        /* D-Pad + Loft */
         .dpad-container {
             display: flex;
             justify-content: center;
@@ -343,7 +387,6 @@
             box-shadow: 0 0 30px #ffeb3b88;
         }
 
-        /* Action buttons */
         .action-row {
             display: flex;
             gap: 8px;
@@ -381,7 +424,6 @@
             color: #f5c842;
         }
 
-        /* ---------- SCROLLBAR ---------- */
         .player-grid::-webkit-scrollbar {
             width: 4px;
         }
@@ -393,7 +435,6 @@
             border-radius: 10px;
         }
 
-        /* Responsive */
         @media (max-width: 420px) {
             .flag-card img {
                 width: 60px;
@@ -413,6 +454,11 @@
             }
             #pitch-canvas {
                 height: 200px;
+            }
+            .toss-options .btn {
+                font-size: 1.5rem;
+                padding: 8px 20px;
+                min-width: 60px;
             }
         }
     </style>
@@ -435,11 +481,7 @@
                 </div>
             </div>
             <button class="btn" id="btn-select-team" disabled>Select Your Team</button>
-            <div style="display:flex; gap:8px;">
-                <button class="btn btn-secondary" id="btn-practice-mode" style="flex:1;">🎯 Practice</button>
-                <button class="btn btn-secondary" id="btn-match-mode" style="flex:1;">🏆 Match</button>
-            </div>
-            <p style="text-align:center;font-size:0.7rem;color:#888;">Pick a flag, then choose Practice or Match.</p>
+            <p style="text-align:center;font-size:0.7rem;color:#888;">Pick a flag, then proceed.</p>
         </div>
 
         <!-- ==================== SELECTION SCREEN ==================== -->
@@ -447,8 +489,28 @@
             <h2 id="sel-title">Choose 11 Players</h2>
             <div id="pick-count">Selected: 0 / 11</div>
             <div class="player-grid" id="player-grid"></div>
-            <button class="btn" id="btn-start-game">🚀 Start</button>
+            <button class="btn" id="btn-start-game">🚀 Start Match</button>
             <button class="btn btn-secondary" id="btn-back-menu">← Back</button>
+        </div>
+
+        <!-- ==================== TOSS SCREEN ==================== -->
+        <div id="toss-screen" class="screen">
+            <h2>🪙 Toss</h2>
+            <div style="font-size:1.2rem;margin-bottom:4px;">Choose Heads or Tails</div>
+            <div class="toss-options">
+                <button class="btn" id="toss-heads">🦅 Heads</button>
+                <button class="btn" id="toss-tails">🐍 Tails</button>
+            </div>
+            <div class="coin" id="coin-emoji">🪙</div>
+            <div class="toss-result" id="toss-result-text">Tap Heads or Tails</div>
+            <div class="toss-decision" id="toss-decision-area" style="display:none;">
+                <div style="font-size:1.1rem;">You won the toss! Choose:</div>
+                <button class="btn btn-green" id="toss-bat">🏏 Bat</button>
+                <button class="btn btn-secondary" id="toss-bowl">⚡ Bowl</button>
+            </div>
+            <div id="toss-ai-decision" style="display:none;font-size:1.1rem;color:#f5c842;"></div>
+            <button class="btn" id="toss-proceed" style="display:none;">▶ Proceed</button>
+            <button class="btn btn-secondary" id="toss-back-menu">← Back</button>
         </div>
 
         <!-- ==================== GAME SCREEN ==================== -->
@@ -461,8 +523,8 @@
 
             <canvas id="pitch-canvas" width="500" height="260"></canvas>
 
-            <!-- Bowling Controls -->
-            <div class="bowl-controls" id="bowl-controls">
+            <!-- Bowling Controls (visible only when user is bowling) -->
+            <div class="bowl-controls" id="bowl-controls" style="display:none;">
                 <div class="group">
                     <span class="group-label">Type</span>
                     <button class="bowl-btn active" data-bowl="fast">Fast</button>
@@ -479,7 +541,6 @@
                 </div>
             </div>
 
-            <!-- Impact Point -->
             <div style="display:flex; justify-content:center; gap:8px; align-items:center;">
                 <span style="font-size:0.65rem;color:#aaa;">Impact</span>
                 <div class="impact-map" id="impact-map">
@@ -492,7 +553,6 @@
                 </div>
             </div>
 
-            <!-- Power Meter -->
             <div class="meter-container">
                 <div id="power-fill" style="width:0%;"></div>
             </div>
@@ -502,7 +562,6 @@
                 <span>Fast</span>
             </div>
 
-            <!-- D-Pad + Loft -->
             <div class="dpad-container">
                 <div class="dpad">
                     <div></div>
@@ -518,7 +577,6 @@
                 <button class="loft-btn" id="loft-btn">🏏<br>LOFT</button>
             </div>
 
-            <!-- Action Buttons -->
             <div class="action-row">
                 <button class="btn" id="btn-bowl" style="flex:2;">⚡ BOWL</button>
                 <button class="btn" id="btn-run" style="flex:1;background:#4caf50;">🏃 RUN</button>
@@ -527,7 +585,7 @@
             <div class="action-row">
                 <button class="btn btn-secondary" id="btn-reset-game" style="flex:1;">🔄 Reset</button>
             </div>
-            <div id="game-message">Select your team first.</div>
+            <div id="game-message">Loading...</div>
         </div>
 
         <!-- ==================== RESULT SCREEN ==================== -->
@@ -546,7 +604,7 @@
 
     <script>
         // ================================================================
-        //  COMPLETE GAME – INTERACTIVE CRICKET
+        //  COMPLETE GAME – WITH TOSS AND AI
         // ================================================================
 
         // ---------- PLAYER DATA ----------
@@ -611,8 +669,13 @@
             currentInnings: 1,
             target: null,
             isMatchOver: false,
-            isBatting: true,
-            // Bowling
+            // Toss state
+            tossWinner: null, // 'user' or 'ai'
+            userTossCall: null, // 'heads' or 'tails'
+            userChoice: null, // 'bat' or 'bowl'
+            // Who bats first?
+            userBatsFirst: null, // true/false
+            // Bowling state
             bowlType: 'fast',
             variation: 'normal',
             impactZone: 'middle',
@@ -622,11 +685,7 @@
             // Batting
             loftActive: false,
             selectedDir: null,
-            // Game mode
-            gameMode: 'match', // 'match' or 'practice'
-            practiceBalls: 0,
-            practiceMax: 10,
-            // Innings scores
+            // Scores
             innings1: { runs: 0, wickets: 0, overs: 0 },
             innings2: { runs: 0, wickets: 0, overs: 0 },
             matchWinner: null,
@@ -635,19 +694,22 @@
             ball: null,
             fielderPositions: [],
             isBallInPlay: false,
-            batsmanPos: { x: 0, y: 0 },
-            bowlerPos: { x: 0, y: 0 },
+            ballReady: false,
             // Running
             isRunning: false,
             runCount: 0,
-            // Timing feedback
-            lastTiming: '',
+            // Practice mode flag (we only use match now)
+            gameMode: 'match',
+            // AI bowling flag
+            isAIBowling: false,
+            isAIBatting: false,
         };
 
         // ---------- DOM REFS ----------
         const $ = id => document.getElementById(id);
         const menuScreen = $('menu-screen');
         const selScreen = $('selection-screen');
+        const tossScreen = $('toss-screen');
         const gameScreen = $('game-screen');
         const resultScreen = $('result-screen');
         const playerGrid = $('player-grid');
@@ -694,36 +756,6 @@
             renderPlayerSelection();
             selTitle.textContent = `Choose 11 - ${selectedTeamFlag.toUpperCase()}`;
             showScreen('selection-screen');
-            // Store mode for later
-            state.gameMode = 'match'; // default
-        });
-
-        // Practice and Match buttons
-        $('btn-practice-mode').addEventListener('click', function() {
-            if (!selectedTeamFlag) {
-                gameMsg.textContent = 'Please select a flag first!';
-                return;
-            }
-            state.selectedTeam = selectedTeamFlag;
-            state.gameMode = 'practice';
-            // Skip player selection – use all players as XI
-            state.allPlayers = PLAYERS[selectedTeamFlag].map(p => ({ ...p, selected: true }));
-            state.playingXI = state.allPlayers.map(p => ({ ...p }));
-            startGame();
-        });
-
-        $('btn-match-mode').addEventListener('click', function() {
-            if (!selectedTeamFlag) {
-                gameMsg.textContent = 'Please select a flag first!';
-                return;
-            }
-            state.selectedTeam = selectedTeamFlag;
-            state.gameMode = 'match';
-            state.allPlayers = PLAYERS[selectedTeamFlag].map(p => ({ ...p, selected: false }));
-            state.playingXI = [];
-            renderPlayerSelection();
-            selTitle.textContent = `Choose 11 - ${selectedTeamFlag.toUpperCase()}`;
-            showScreen('selection-screen');
         });
 
         // ---------- PLAYER SELECTION ----------
@@ -764,18 +796,111 @@
 
         $('btn-back-menu').addEventListener('click', () => showScreen('menu-screen'));
 
-        // ---------- START GAME ----------
+        // ---------- START GAME (after selection) ----------
         $('btn-start-game').addEventListener('click', function() {
             if (state.playingXI.length !== 11) return;
-            startGame();
+            // Go to toss
+            state.playingXI = shuffleArray(state.playingXI);
+            showTossScreen();
         });
 
-        function startGame() {
-            // Setup teams
+        // ---------- TOSS SCREEN ----------
+        function showTossScreen() {
+            // Reset toss UI
+            $('toss-result-text').textContent = 'Choose Heads or Tails';
+            $('coin-emoji').textContent = '🪙';
+            $('toss-decision-area').style.display = 'none';
+            $('toss-ai-decision').style.display = 'none';
+            $('toss-proceed').style.display = 'none';
+            document.querySelectorAll('.toss-options .btn').forEach(b => b.disabled = false);
+            showScreen('toss-screen');
+            state.userTossCall = null;
+            state.tossWinner = null;
+            state.userChoice = null;
+        }
+
+        // Toss buttons
+        $('toss-heads').addEventListener('click', function() { handleTossCall('heads'); });
+        $('toss-tails').addEventListener('click', function() { handleTossCall('tails'); });
+
+        function handleTossCall(call) {
+            state.userTossCall = call;
+            document.querySelectorAll('.toss-options .btn').forEach(b => b.disabled = true);
+            // Flip coin
+            const coin = $('coin-emoji');
+            coin.classList.remove('flip');
+            void coin.offsetWidth; // trigger reflow
+            coin.classList.add('flip');
+
+            // Random result
+            const result = Math.random() < 0.5 ? 'heads' : 'tails';
+            setTimeout(() => {
+                coin.textContent = result === 'heads' ? '🦅' : '🐍';
+                const userWon = (result === state.userTossCall);
+                state.tossWinner = userWon ? 'user' : 'ai';
+                const resultText = document.getElementById('toss-result-text');
+                if (userWon) {
+                    resultText.textContent = '🎉 You won the toss!';
+                    // Show bat/bowl options
+                    document.getElementById('toss-decision-area').style.display = 'flex';
+                    document.getElementById('toss-ai-decision').style.display = 'none';
+                    document.getElementById('toss-proceed').style.display = 'none';
+                } else {
+                    resultText.textContent = '😞 You lost the toss. AI chooses...';
+                    document.getElementById('toss-decision-area').style.display = 'none';
+                    // AI makes a random choice
+                    const aiChoice = Math.random() < 0.5 ? 'bat' : 'bowl';
+                    state.userChoice = (aiChoice === 'bat') ? 'bowl' : 'bat'; // user gets the opposite
+                    const aiChoiceText = aiChoice === 'bat' ? 'batting' : 'bowling';
+                    document.getElementById('toss-ai-decision').style.display = 'block';
+                    document.getElementById('toss-ai-decision').textContent =
+                        `AI chooses to ${aiChoiceText} first. You will ${state.userChoice === 'bat' ? 'bat' : 'bowl'}.`;
+                    document.getElementById('toss-proceed').style.display = 'block';
+                }
+            }, 700);
+        }
+
+        // Toss decision: Bat or Bowl
+        $('toss-bat').addEventListener('click', function() {
+            state.userChoice = 'bat';
+            document.getElementById('toss-decision-area').style.display = 'none';
+            document.getElementById('toss-ai-decision').style.display = 'none';
+            document.getElementById('toss-proceed').style.display = 'block';
+            document.getElementById('toss-result-text').textContent = 'You chose to bat first!';
+        });
+
+        $('toss-bowl').addEventListener('click', function() {
+            state.userChoice = 'bowl';
+            document.getElementById('toss-decision-area').style.display = 'none';
+            document.getElementById('toss-ai-decision').style.display = 'none';
+            document.getElementById('toss-proceed').style.display = 'block';
+            document.getElementById('toss-result-text').textContent = 'You chose to bowl first!';
+        });
+
+        // Proceed button after toss
+        $('toss-proceed').addEventListener('click', function() {
+            // Determine who bats first
+            // If user chose bat, user bats first; if user chose bowl, AI bats first
+            const userBatsFirst = (state.userChoice === 'bat');
             const userTeam = state.selectedTeam;
             const oppTeam = userTeam === 'india' ? 'pakistan' : 'india';
-            state.battingTeam = userTeam;
-            state.bowlingTeam = oppTeam;
+
+            if (userBatsFirst) {
+                state.battingTeam = userTeam;
+                state.bowlingTeam = oppTeam;
+                state.isAIBowling = true;
+                state.isAIBatting = false;
+            } else {
+                state.battingTeam = oppTeam;
+                state.bowlingTeam = userTeam;
+                state.isAIBowling = false;
+                state.isAIBatting = true;
+            }
+
+            // Store user's team for later reference
+            state.userTeam = userTeam;
+
+            // Initialize match
             state.currentInnings = 1;
             state.runs = 0;
             state.wickets = 0;
@@ -783,21 +908,10 @@
             state.overs = 0;
             state.target = null;
             state.isMatchOver = false;
-            state.isBatting = true;
-            state.playingXI = shuffleArray(state.playingXI);
-            state.practiceBalls = 0;
-
-            // Reset score storage
             state.innings1 = { runs: 0, wickets: 0, overs: 0 };
             state.innings2 = { runs: 0, wickets: 0, overs: 0 };
 
-            // Reset ball
-            state.ball = null;
-            state.isBallInPlay = false;
-            state.isRunning = false;
-            state.runCount = 0;
-
-            // Set up fielders (default positions)
+            // Setup fielders
             state.fielderPositions = [
                 { x: 0.2, y: 0.15 },
                 { x: 0.35, y: 0.1 },
@@ -810,13 +924,168 @@
                 { x: 0.15, y: 0.7 }
             ];
 
+            // Show/hide bowling controls based on who is bowling
+            const bowlControls = document.getElementById('bowl-controls');
+            if (state.isAIBowling) {
+                bowlControls.style.display = 'none';
+                gameMsg.textContent = 'AI is bowling. Watch the ball and tap to bat!';
+            } else {
+                bowlControls.style.display = 'flex';
+                gameMsg.textContent = 'You are bowling. Set your delivery and press BOWL!';
+            }
+
             updateScoreboard();
             showScreen('game-screen');
-            gameMsg.textContent = state.gameMode === 'practice' ?
-                'Practice mode – 10 balls. Click on pitch to time your shot!' :
-                'Match started! You bat first. Use D-Pad + Loft.';
             resetPowerMeter();
             drawPitch();
+
+            // If AI is bowling, start AI bowling after a short delay
+            if (state.isAIBowling) {
+                setTimeout(() => aiBowling(), 1000);
+            }
+        });
+
+        // ---------- AI BOWLING LOGIC ----------
+        function aiBowling() {
+            if (state.isMatchOver || state.isBallInPlay) return;
+            // AI selects random variations
+            const types = ['fast', 'spin'];
+            state.bowlType = types[Math.floor(Math.random() * types.length)];
+            const variations = state.bowlType === 'fast' ?
+                ['normal', 'swing-in', 'swing-out', 'cutter'] :
+                ['normal', 'googly', 'doosra'];
+            state.variation = variations[Math.floor(Math.random() * variations.length)];
+            const zones = ['outside-off', 'middle', 'leg', 'full', 'good', 'short'];
+            state.impactZone = zones[Math.floor(Math.random() * zones.length)];
+
+            // Set power meter randomly (avoid no-ball mostly)
+            const power = 30 + Math.random() * 50;
+            state.powerMeter = power;
+            const isNoBall = power > 80;
+            if (isNoBall) {
+                state.runs += 1;
+                gameMsg.textContent = 'AI bowls a NO-BALL! Extra run + Free Hit.';
+                updateScoreboard();
+                // Re-bowl
+                setTimeout(() => aiBowling(), 800);
+                return;
+            }
+
+            // Deliver ball
+            deliverBallAI(isNoBall);
+        }
+
+        function deliverBallAI(isNoBall) {
+            // Wide check
+            const wideZones = ['outside-off', 'leg'];
+            let isWide = false;
+            if (wideZones.includes(state.impactZone) && !isNoBall) {
+                isWide = true;
+            }
+
+            if (isWide) {
+                state.runs += 1;
+                gameMsg.textContent = 'WIDE! 1 extra run. Re-bowled.';
+                updateScoreboard();
+                drawPitch();
+                resetPowerMeter();
+                setTimeout(() => aiBowling(), 800);
+                return;
+            }
+
+            if (!isNoBall) {
+                state.balls += 1;
+                if (state.balls % 6 === 0 && state.balls > 0) state.overs += 1;
+            }
+
+            // Animate ball (AI bowling)
+            const W = canvas.width,
+                H = canvas.height;
+            const startX = W * 0.48,
+                startY = H * 0.20;
+            const endX = W * 0.48,
+                endY = H * 0.72;
+
+            const ball = {
+                x: startX,
+                y: startY,
+                targetX: endX,
+                targetY: endY,
+                progress: 0,
+                speed: 0.02 + (state.powerMeter / 100) * 0.04,
+                bounce: false,
+                bounceY: 0,
+                swing: 0,
+                spin: 0,
+                type: state.bowlType,
+                variation: state.variation,
+                impactZone: state.impactZone,
+                isNoBall: isNoBall,
+                isDelivered: true,
+                isAI: true,
+            };
+
+            if (state.variation === 'swing-in') ball.swing = -0.3;
+            else if (state.variation === 'swing-out') ball.swing = 0.3;
+            else if (state.variation === 'googly') ball.swing = 0.2;
+            else if (state.variation === 'doosra') ball.swing = -0.2;
+            else ball.swing = 0;
+
+            if (state.bowlType === 'spin') {
+                ball.spin = (state.variation === 'googly') ? 0.4 :
+                    (state.variation === 'doosra') ? -0.4 : 0.2;
+            }
+
+            state.ball = ball;
+            state.isBallInPlay = true;
+            state.ballReady = false;
+
+            let lastTime = performance.now();
+
+            function animateBall(time) {
+                const dt = (time - lastTime) / 16;
+                lastTime = time;
+
+                if (!state.ball || state.isMatchOver) return;
+
+                const b = state.ball;
+                b.progress += b.speed * dt * 1.2;
+                const t = Math.min(b.progress, 1);
+                const x = b.x + (b.targetX - b.x) * t + b.swing * t * 30;
+                let y = b.y + (b.targetY - b.y) * t - 80 * t * (1 - t) * 1.5;
+                if (t > 0.65 && !b.bounce) {
+                    b.bounce = true;
+                    b.bounceY = y;
+                }
+                if (b.bounce) {
+                    const bounceFactor = 1 - (t - 0.65) / 0.35;
+                    y = b.bounceY + (b.targetY - b.bounceY) * (t - 0.65) / 0.35 - 40 * bounceFactor * (1 - bounceFactor) *
+                        1.2;
+                }
+
+                b.x = x;
+                b.y = y;
+
+                if (t >= 1 || y > H * 0.85) {
+                    state.isBallInPlay = false;
+                    state.ballReady = true;
+                    gameMsg.textContent = '⚡ Tap the pitch to play your shot!';
+                    drawPitch();
+                    return;
+                }
+
+                drawPitch();
+                ctx.fillStyle = '#ff3d00';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                requestAnimationFrame(animateBall);
+            }
+
+            requestAnimationFrame(animateBall);
+            resetPowerMeter();
+            updateScoreboard();
         }
 
         // ---------- SCOREBOARD ----------
@@ -833,15 +1102,14 @@
             }
         }
 
-        // ---------- DRAW PITCH (with animated elements) ----------
-        let bowlerAnimFrame = 0; // for run-up
+        // ---------- DRAW PITCH ----------
+        let bowlerAnimFrame = 0;
 
         function drawPitch() {
             const W = canvas.width,
                 H = canvas.height;
             ctx.clearRect(0, 0, W, H);
 
-            // Sky gradient
             const grad = ctx.createLinearGradient(0, 0, 0, H);
             grad.addColorStop(0, '#87CEEB');
             grad.addColorStop(0.3, '#b5dffa');
@@ -850,13 +1118,11 @@
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
 
-            // Pitch strip
             ctx.fillStyle = '#8bc34a';
             ctx.fillRect(W * 0.15, H * 0.08, W * 0.7, H * 0.84);
             ctx.fillStyle = '#558b2f';
             ctx.fillRect(W * 0.2, H * 0.12, W * 0.6, H * 0.76);
 
-            // Crease lines
             ctx.strokeStyle = 'white';
             ctx.lineWidth = 2;
             ctx.setLineDash([4, 4]);
@@ -868,16 +1134,16 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Stumps (batting end)
+            // Stumps
             const stumpX = W * 0.48,
                 stumpY = H * 0.72;
             ctx.fillStyle = '#d32f2f';
             for (let i = 0; i < 3; i++) {
                 ctx.fillRect(stumpX + i * 6, stumpY, 3, 28);
             }
-            ctx.fillRect(stumpX - 3, stumpY + 26, 24, 4); // bails
+            ctx.fillRect(stumpX - 3, stumpY + 26, 24, 4);
 
-            // Batsman (stick figure with bat)
+            // Batsman
             const batX = W * 0.48,
                 batY = H * 0.65;
             ctx.strokeStyle = '#fff';
@@ -905,7 +1171,6 @@
             ctx.moveTo(batX, batY + 28);
             ctx.lineTo(batX + 8, batY + 40);
             ctx.stroke();
-            // Bat
             ctx.fillStyle = '#ffb300';
             ctx.fillRect(batX + 10, batY + 20, 6, 20);
 
@@ -916,7 +1181,7 @@
             ctx.fill();
             ctx.fillRect(W * 0.415, H * 0.78, 10, 20);
 
-            // Bowler (animated run-up)
+            // Bowler
             const bowlerBaseX = W * 0.48,
                 bowlerBaseY = H * 0.20;
             const runOffset = Math.sin(bowlerAnimFrame * 0.15) * 8;
@@ -926,7 +1191,7 @@
             ctx.fill();
             ctx.fillRect(bowlerBaseX + runOffset - 4, bowlerBaseY + 4, 8, 28);
 
-            // Fielders (dots)
+            // Fielders
             ctx.fillStyle = '#ffeb3b';
             state.fielderPositions.forEach(f => {
                 const fx = f.x * W,
@@ -936,20 +1201,17 @@
                 ctx.fill();
             });
 
-            // Ball if in play
             if (state.ball) {
                 ctx.fillStyle = '#ff3d00';
                 ctx.beginPath();
                 ctx.arc(state.ball.x, state.ball.y, 6, 0, Math.PI * 2);
                 ctx.fill();
-                // trail
                 ctx.shadowColor = '#ff3d00';
                 ctx.shadowBlur = 15;
                 ctx.fill();
                 ctx.shadowBlur = 0;
             }
 
-            // Labels
             ctx.fillStyle = 'white';
             ctx.font = '10px sans-serif';
             ctx.fillText('BATSMAN', W * 0.44, H * 0.94);
@@ -957,13 +1219,13 @@
             ctx.fillText('WK', W * 0.36, H * 0.70);
         }
 
-        // ---------- BOWLING CONTROLS ----------
+        // ---------- BOWLING CONTROLS (User bowling) ----------
         document.querySelectorAll('[data-bowl]').forEach(btn => {
             btn.addEventListener('click', function() {
+                if (state.isAIBowling || state.isAIBatting) return;
                 document.querySelectorAll('[data-bowl]').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 state.bowlType = this.dataset.bowl;
-                // Show/hide variations
                 document.querySelectorAll('[data-var]').forEach(v => v.style.display = 'inline-block');
                 if (state.bowlType === 'fast') {
                     document.querySelectorAll('[data-var]').forEach(v => {
@@ -982,15 +1244,16 @@
 
         document.querySelectorAll('[data-var]').forEach(btn => {
             btn.addEventListener('click', function() {
+                if (state.isAIBowling || state.isAIBatting) return;
                 document.querySelectorAll('[data-var]').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 state.variation = this.dataset.var;
             });
         });
 
-        // Impact Point
         document.querySelectorAll('.impact-zone').forEach(zone => {
             zone.addEventListener('click', function() {
+                if (state.isAIBowling || state.isAIBatting) return;
                 document.querySelectorAll('.impact-zone').forEach(z => z.classList.remove('selected'));
                 this.classList.add('selected');
                 state.impactZone = this.dataset.zone;
@@ -1013,7 +1276,7 @@
         }
 
         function startPowerMeter() {
-            if (state.isMeterRunning || state.isMatchOver) return;
+            if (state.isMeterRunning || state.isMatchOver || state.isAIBowling || state.isAIBatting) return;
             state.isMeterRunning = true;
             $('power-status').textContent = '🔄 Tap BOWL again!';
             meterTimer = setInterval(() => {
@@ -1040,14 +1303,12 @@
             } else {
                 $('power-status').textContent = `Speed: ${Math.round(meterValue)}%`;
             }
-            deliverBall(isNoBall);
+            deliverBallUser(isNoBall);
         }
 
-        // ---------- BALL DELIVERY & PHYSICS ----------
-        function deliverBall(isNoBall) {
+        // ---------- USER BOWLING ----------
+        function deliverBallUser(isNoBall) {
             if (state.isMatchOver) return;
-
-            // Wide check
             const wideZones = ['outside-off', 'leg'];
             let isWide = false;
             if (wideZones.includes(state.impactZone) && !isNoBall) {
@@ -1063,33 +1324,19 @@
                 return;
             }
 
-            // Count ball
             if (!isNoBall) {
                 state.balls += 1;
                 if (state.balls % 6 === 0 && state.balls > 0) state.overs += 1;
-                if (state.gameMode === 'practice') {
-                    state.practiceBalls++;
-                }
             }
 
-            // ---------- SIMULATE BALL TRAJECTORY & BATTING ----------
+            // Animate ball (user bowling)
             const W = canvas.width,
                 H = canvas.height;
-            // Start ball from bowler
             const startX = W * 0.48,
                 startY = H * 0.20;
             const endX = W * 0.48,
-                endY = H * 0.72; // batting end
+                endY = H * 0.72;
 
-            // Determine if user bats or bowls (in match mode, user bats first; in practice always bats)
-            const isUserBatting = (state.gameMode === 'practice') || (state.isBatting && state.currentInnings === 1) ||
-                (!state.isBatting && state.currentInnings === 2);
-
-            // For now, we handle batting by user clicking on canvas.
-            // We'll store that the ball is in flight, and on click we process shot.
-            // We'll simulate ball movement with requestAnimationFrame.
-
-            // Create ball object
             const ball = {
                 x: startX,
                 y: startY,
@@ -1099,26 +1346,22 @@
                 speed: 0.02 + (state.powerMeter / 100) * 0.04,
                 bounce: false,
                 bounceY: 0,
-                // For spin deviation
-                spin: 0,
                 swing: 0,
+                spin: 0,
                 type: state.bowlType,
                 variation: state.variation,
                 impactZone: state.impactZone,
                 isNoBall: isNoBall,
-                isWide: false,
                 isDelivered: true,
-                // We'll animate
+                isAI: false,
             };
 
-            // Apply swing (lateral deviation)
             if (state.variation === 'swing-in') ball.swing = -0.3;
             else if (state.variation === 'swing-out') ball.swing = 0.3;
             else if (state.variation === 'googly') ball.swing = 0.2;
             else if (state.variation === 'doosra') ball.swing = -0.2;
             else ball.swing = 0;
 
-            // Spin effect (after bounce)
             if (state.bowlType === 'spin') {
                 ball.spin = (state.variation === 'googly') ? 0.4 :
                     (state.variation === 'doosra') ? -0.4 : 0.2;
@@ -1126,8 +1369,8 @@
 
             state.ball = ball;
             state.isBallInPlay = true;
+            state.ballReady = false;
 
-            // Animate the ball
             let lastTime = performance.now();
 
             function animateBall(time) {
@@ -1138,39 +1381,36 @@
 
                 const b = state.ball;
                 b.progress += b.speed * dt * 1.2;
-
-                // Parabolic trajectory
                 const t = Math.min(b.progress, 1);
                 const x = b.x + (b.targetX - b.x) * t + b.swing * t * 30;
-                // Height: parabolic with bounce
                 let y = b.y + (b.targetY - b.y) * t - 80 * t * (1 - t) * 1.5;
-                // Bounce at ~70% of the way
                 if (t > 0.65 && !b.bounce) {
                     b.bounce = true;
                     b.bounceY = y;
                 }
                 if (b.bounce) {
-                    // after bounce, rise slightly
                     const bounceFactor = 1 - (t - 0.65) / 0.35;
-                    y = b.bounceY + (b.targetY - b.bounceY) * (t - 0.65) / 0.35 - 40 * bounceFactor * (1 - bounceFactor) * 1.2;
+                    y = b.bounceY + (b.targetY - b.bounceY) * (t - 0.65) / 0.35 - 40 * bounceFactor * (1 - bounceFactor) *
+                        1.2;
                 }
 
                 b.x = x;
                 b.y = y;
 
-                // If ball reached batsman end, stop and process shot
                 if (t >= 1 || y > H * 0.85) {
                     state.isBallInPlay = false;
-                    // Wait for user to click to play shot (or auto-play)
-                    // We'll set a flag that ball is ready to be hit.
-                    state.ballReady = true;
-                    gameMsg.textContent = '⚡ Tap the pitch to play your shot!';
+                    // AI batting: auto-play shot
+                    if (state.isAIBatting) {
+                        aiBatting();
+                    } else {
+                        state.ballReady = true;
+                        gameMsg.textContent = '⚡ Tap the pitch to play your shot!';
+                    }
                     drawPitch();
                     return;
                 }
 
                 drawPitch();
-                // Draw ball on top
                 ctx.fillStyle = '#ff3d00';
                 ctx.beginPath();
                 ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
@@ -1179,130 +1419,55 @@
                 requestAnimationFrame(animateBall);
             }
 
-            // Start animation
-            state.ballReady = false;
             requestAnimationFrame(animateBall);
-
-            // Reset power meter after delivery
             resetPowerMeter();
             updateScoreboard();
         }
 
-        // ---------- CANVAS CLICK FOR BATTING ----------
-        canvas.addEventListener('click', function(e) {
-            handleBatting(e);
-        });
-        canvas.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            const touch = e.touches[0];
-            const rect = canvas.getBoundingClientRect();
-            const ev = {
-                clientX: touch.clientX,
-                clientY: touch.clientY,
-            };
-            handleBatting(ev);
-        });
-
-        function handleBatting(e) {
-            if (!state.ballReady || state.isMatchOver) return;
-
-            const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX - rect.left) / rect.width * canvas.width;
-            const y = (e.clientY - rect.top) / rect.height * canvas.height;
-
-            // Determine shot direction based on click position relative to batsman
-            const batX = canvas.width * 0.48;
-            const diffX = x - batX;
-            let dir = 'middle';
-            if (diffX < -20) dir = 'left';
-            else if (diffX > 20) dir = 'right';
-            // Also determine loft based on loft button
-            const isLoft = state.loftActive;
-
-            // Timing: how close is the ball to the batsman?
+        // ---------- AI BATTING ----------
+        function aiBatting() {
+            if (state.isMatchOver) return;
             const ball = state.ball;
             if (!ball) return;
 
-            const distToBatsman = Math.hypot(ball.x - batX, ball.y - canvas.height * 0.72);
+            // AI timing: random but with some skill
+            const rand = Math.random();
             let timing = 'Perfect';
-            if (distToBatsman > 40) timing = 'Early';
-            else if (distToBatsman < 15) timing = 'Late';
-            // Actually, timing should be based on ball's progress
-            const t = ball.progress;
-            if (t < 0.7) timing = 'Early';
-            else if (t > 0.95) timing = 'Late';
+            if (rand < 0.25) timing = 'Early';
+            else if (rand < 0.45) timing = 'Late';
             else timing = 'Perfect';
 
-            // Process shot result
-            processShot(dir, isLoft, timing);
-        }
+            // AI shot direction random
+            const dirs = ['left', 'middle', 'right'];
+            const dir = dirs[Math.floor(Math.random() * dirs.length)];
+            const loft = Math.random() < 0.2; // AI lofts 20% of the time
 
-        // ---------- PROCESS SHOT ----------
-        function processShot(dir, loft, timing) {
-            state.ballReady = false;
-            const ball = state.ball;
-            if (!ball) return;
-
+            // Process shot result (AI batting)
             let runs = 0;
             let isOut = false;
             let outType = '';
-
-            // Determine outcome based on timing, loft, and random
-            const rand = Math.random();
-
-            // Wide/No-ball already handled – but if it's a no-ball, batsman can't be out (except run out)
             const isNoBall = ball.isNoBall;
 
-            // For practice mode, no wickets
-            if (state.gameMode === 'practice') {
-                // Just give runs based on timing
-                if (timing === 'Perfect') {
-                    runs = loft ? (rand < 0.5 ? 6 : 4) : (rand < 0.3 ? 4 : (rand < 0.6 ? 2 : 1));
-                } else if (timing === 'Early' || timing === 'Late') {
-                    runs = loft ? (rand < 0.2 ? 4 : 0) : (rand < 0.3 ? 2 : (rand < 0.6 ? 1 : 0));
-                } else {
-                    runs = 0;
-                }
-                state.runs += runs;
-                gameMsg.textContent = `${runs} runs (${timing} timing)`;
-                state.lastTiming = timing;
-                state.ball = null;
-                state.isBallInPlay = false;
-                updateScoreboard();
-                drawPitch();
-                // Check practice end
-                if (state.practiceBalls >= state.practiceMax) {
-                    endMatch(state.battingTeam);
-                } else {
-                    // Ready for next ball
-                    resetPowerMeter();
-                }
-                return;
-            }
-
-            // ----- MATCH MODE -----
-            // Check if out
             if (!isNoBall) {
-                // Wicket probability
-                let outProb = 0.02; // base
-                if (loft && timing !== 'Perfect') outProb += 0.15;
-                if (timing === 'Early' || timing === 'Late') outProb += 0.05;
-                if (loft) outProb += 0.08;
+                let outProb = 0.03;
+                if (loft && timing !== 'Perfect') outProb += 0.2;
+                if (timing === 'Early' || timing === 'Late') outProb += 0.08;
+                if (loft) outProb += 0.1;
 
-                if (rand < outProb) {
+                if (Math.random() < outProb) {
                     isOut = true;
                     const outTypes = ['Bowled', 'Caught', 'LBW', 'Run Out'];
                     outType = outTypes[Math.floor(Math.random() * outTypes.length)];
                     state.wickets += 1;
-                    gameMsg.textContent = `OUT! ${outType}`;
+                    gameMsg.textContent = `AI OUT! ${outType}`;
                 }
             }
 
             if (!isOut) {
-                // Runs
                 if (loft) {
-                    if (timing === 'Perfect') runs = (rand < 0.6) ? 6 : 4;
-                    else if (timing === 'Early' || timing === 'Late') runs = (rand < 0.3) ? 4 : (rand < 0.6 ? 2 : 0);
+                    if (timing === 'Perfect') runs = (Math.random() < 0.5) ? 6 : 4;
+                    else if (timing === 'Early' || timing === 'Late') runs = (Math.random() < 0.3) ? 4 : (Math.random() <
+                        0.6 ? 2 : 0);
                     else runs = 0;
                 } else {
                     if (timing === 'Perfect') {
@@ -1315,7 +1480,131 @@
                             if (r < sum) { runs = opts[i]; break; }
                         }
                     } else if (timing === 'Early' || timing === 'Late') {
-                        runs = (rand < 0.3) ? 2 : (rand < 0.6 ? 1 : 0);
+                        runs = (Math.random() < 0.3) ? 2 : (Math.random() < 0.6 ? 1 : 0);
+                    } else {
+                        runs = 0;
+                    }
+                }
+                state.runs += runs;
+                gameMsg.textContent = `AI scores ${runs} runs (${timing})`;
+            }
+
+            state.ball = null;
+            state.isBallInPlay = false;
+            state.ballReady = false;
+
+            // Check innings over
+            if (state.wickets >= 10 || state.balls >= 30) {
+                endInnings();
+                return;
+            }
+            if (state.currentInnings === 2 && state.target !== null && state.runs >= state.target) {
+                gameMsg.textContent = '🏆 Target chased!';
+                endMatch(state.battingTeam);
+                return;
+            }
+
+            updateScoreboard();
+            drawPitch();
+            resetPowerMeter();
+
+            // If AI is still batting, continue bowling (user bowls)
+            if (state.isAIBatting && !state.isMatchOver) {
+                // User bowls again – show controls
+                document.getElementById('bowl-controls').style.display = 'flex';
+                gameMsg.textContent = 'Your turn to bowl! Set delivery and press BOWL.';
+            } else if (state.isAIBowling && !state.isMatchOver) {
+                // AI continues bowling
+                setTimeout(() => aiBowling(), 1000);
+            }
+        }
+
+        // ---------- USER BATTING (canvas click) ----------
+        canvas.addEventListener('click', function(e) {
+            handleUserBatting(e);
+        });
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const ev = {
+                clientX: touch.clientX,
+                clientY: touch.clientY,
+            };
+            handleUserBatting(ev);
+        });
+
+        function handleUserBatting(e) {
+            if (!state.ballReady || state.isMatchOver) return;
+            if (state.isAIBatting) return; // AI bats automatically
+
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width * canvas.width;
+            const y = (e.clientY - rect.top) / rect.height * canvas.height;
+
+            const batX = canvas.width * 0.48;
+            const diffX = x - batX;
+            let dir = 'middle';
+            if (diffX < -20) dir = 'left';
+            else if (diffX > 20) dir = 'right';
+
+            const isLoft = state.loftActive;
+            const ball = state.ball;
+            if (!ball) return;
+
+            // Timing
+            const t = ball.progress;
+            let timing = 'Perfect';
+            if (t < 0.7) timing = 'Early';
+            else if (t > 0.95) timing = 'Late';
+            else timing = 'Perfect';
+
+            processUserShot(dir, isLoft, timing);
+        }
+
+        function processUserShot(dir, loft, timing) {
+            state.ballReady = false;
+            const ball = state.ball;
+            if (!ball) return;
+
+            let runs = 0;
+            let isOut = false;
+            let outType = '';
+            const isNoBall = ball.isNoBall;
+
+            if (!isNoBall) {
+                let outProb = 0.02;
+                if (loft && timing !== 'Perfect') outProb += 0.18;
+                if (timing === 'Early' || timing === 'Late') outProb += 0.05;
+                if (loft) outProb += 0.08;
+
+                if (Math.random() < outProb) {
+                    isOut = true;
+                    const outTypes = ['Bowled', 'Caught', 'LBW', 'Run Out'];
+                    outType = outTypes[Math.floor(Math.random() * outTypes.length)];
+                    state.wickets += 1;
+                    gameMsg.textContent = `OUT! ${outType}`;
+                }
+            }
+
+            if (!isOut) {
+                if (loft) {
+                    if (timing === 'Perfect') runs = (Math.random() < 0.6) ? 6 : 4;
+                    else if (timing === 'Early' || timing === 'Late') runs = (Math.random() < 0.3) ? 4 : (Math.random() <
+                        0.6 ? 2 : 0);
+                    else runs = 0;
+                } else {
+                    if (timing === 'Perfect') {
+                        const opts = [1, 2, 3, 4, 6];
+                        const weights = [0.2, 0.35, 0.1, 0.25, 0.1];
+                        let r = Math.random(),
+                            sum = 0;
+                        for (let i = 0; i < weights.length; i++) {
+                            sum += weights[i];
+                            if (r < sum) { runs = opts[i]; break; }
+                        }
+                    } else if (timing === 'Early' || timing === 'Late') {
+                        runs = (Math.random() < 0.3) ? 2 : (Math.random() < 0.6 ? 1 : 0);
                     } else {
                         runs = 0;
                     }
@@ -1326,15 +1615,13 @@
 
             state.ball = null;
             state.isBallInPlay = false;
-            state.lastTiming = timing;
+            state.ballReady = false;
 
             // Check innings over
             if (state.wickets >= 10 || state.balls >= 30) {
                 endInnings();
                 return;
             }
-
-            // Check target chased (2nd innings)
             if (state.currentInnings === 2 && state.target !== null && state.runs >= state.target) {
                 gameMsg.textContent = '🏆 Target chased! You win!';
                 endMatch(state.battingTeam);
@@ -1344,6 +1631,15 @@
             updateScoreboard();
             drawPitch();
             resetPowerMeter();
+
+            // If AI is bowling, continue
+            if (state.isAIBowling && !state.isMatchOver) {
+                setTimeout(() => aiBowling(), 1000);
+            } else if (state.isAIBatting && !state.isMatchOver) {
+                // User bowls again – show controls
+                document.getElementById('bowl-controls').style.display = 'flex';
+                gameMsg.textContent = 'Your turn to bowl! Set delivery and press BOWL.';
+            }
         }
 
         // ---------- END INNINGS ----------
@@ -1360,15 +1656,27 @@
                 state.wickets = 0;
                 state.balls = 0;
                 state.overs = 0;
-                state.isBatting = !state.isBatting;
+                // Toggle AI roles
+                state.isAIBowling = !state.isAIBowling;
+                state.isAIBatting = !state.isAIBatting;
+
                 gameMsg.textContent = `Innings 1 over! Target: ${state.target}`;
                 updateScoreboard();
                 drawPitch();
                 resetPowerMeter();
                 state.ball = null;
                 state.isBallInPlay = false;
+                state.ballReady = false;
+
+                // Show/hide controls
+                if (state.isAIBowling) {
+                    document.getElementById('bowl-controls').style.display = 'none';
+                    setTimeout(() => aiBowling(), 1500);
+                } else {
+                    document.getElementById('bowl-controls').style.display = 'flex';
+                    gameMsg.textContent = 'You are bowling now! Set delivery and press BOWL.';
+                }
             } else {
-                // Innings 2 over
                 endMatch(state.battingTeam === state.selectedTeam ? state.battingTeam : state.bowlingTeam);
             }
         }
@@ -1412,6 +1720,10 @@
         // Bowl button
         $('btn-bowl').addEventListener('click', function() {
             if (state.isMatchOver) return;
+            if (state.isAIBowling || state.isAIBatting) {
+                gameMsg.textContent = 'AI is controlling this phase.';
+                return;
+            }
             if (state.isBallInPlay) {
                 gameMsg.textContent = 'Ball is already in play!';
                 return;
@@ -1423,10 +1735,13 @@
             }
         });
 
-        // Run button (simulate running)
+        // Run button
         $('btn-run').addEventListener('click', function() {
             if (state.isMatchOver || state.isBallInPlay) return;
-            // Allow extra run if not out
+            if (state.isAIBowling || state.isAIBatting) {
+                gameMsg.textContent = 'AI is controlling this phase.';
+                return;
+            }
             if (state.runs > 0) {
                 state.runs += 1;
                 gameMsg.textContent = '🏃 Single taken!';
@@ -1449,25 +1764,23 @@
             location.reload();
         });
 
-        // ---------- ANIMATION LOOP (for bowler run-up) ----------
+        // Toss back button
+        $('toss-back-menu').addEventListener('click', function() {
+            showScreen('menu-screen');
+        });
+
+        // ---------- ANIMATION LOOP ----------
         function animate() {
             if (!document.querySelector('#game-screen.active')) {
                 requestAnimationFrame(animate);
                 return;
             }
-            // Update bowler run-up
             bowlerAnimFrame += 1;
             drawPitch();
-            // If ball is in play, we'll draw it inside the animation loop of the ball
-            // But if ball is null, we redraw pitch
-            if (!state.ball || !state.isBallInPlay) {
-                // Still draw
-            }
             requestAnimationFrame(animate);
         }
 
         // ---------- INIT ----------
-        // Start animation loop
         animate();
         gameMsg.textContent = 'Select your team from the menu.';
     </script>
