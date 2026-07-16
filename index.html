@@ -1418,7 +1418,162 @@
             batsmanXOffset: 0,
             innings1Team: null,
             innings2Team: null,
+            battingOrder: [],
+            currentBatsmanIdx: 0,
+            innings1BattingOrder: [],
+            innings2BattingOrder: [],
+            innings1BowlingOrder: [],
+            innings2BowlingOrder: [],
         };
+
+        // Build a simple batting order (11 players) for a given team, used only
+        // to attribute individual runs/wickets so Man of the Match can be picked
+        // correctly from the WINNING team. If the team is the user's selected
+        // team, use the actual chosen XI; otherwise use that team's roster.
+        function buildBattingOrder(team) {
+            const roster = (team === state.userTeam) ? state.playingXI : (PLAYERS[team] || []);
+            const rank = r => (r === 'BAT' || r === 'WK') ? 0 : (r === 'AR' ? 1 : 2);
+            return roster.slice(0, 11)
+                .map(p => ({ name: p.name, role: p.role, team, runs: 0, wickets: 0, isOut: false }))
+                .sort((a, b) => rank(a.role) - rank(b.role));
+        }
+
+        // Pick the Man of the Match from the WINNING team only, based on whoever
+        // put up the best combined runs/wickets across both innings.
+        function computeMotm(winningTeam) {
+            const pool = [
+                ...(state.innings1BattingOrder || []),
+                ...(state.innings2BattingOrder || []),
+                ...(state.innings1BowlingOrder || []),
+                ...(state.innings2BowlingOrder || []),
+            ].filter(p => p && p.team === winningTeam);
+
+            if (pool.length === 0) {
+                const fallback = state.playingXI[0] || { name: 'Player' };
+                return { name: fallback.name, runs: 0, wickets: 0 };
+            }
+
+            const merged = {};
+            pool.forEach(p => {
+                if (!merged[p.name]) merged[p.name] = { name: p.name, runs: 0, wickets: 0 };
+                merged[p.name].runs += (p.runs || 0);
+                merged[p.name].wickets += (p.wickets || 0);
+            });
+
+            // Standard MOTM heuristic: weight wickets heavily against runs.
+            return Object.values(merged).sort((a, b) =>
+                (b.runs + b.wickets * 25) - (a.runs + a.wickets * 25)
+            )[0];
+        }
+
+        function applyMotm(winningTeam) {
+            const best = winningTeam ? computeMotm(winningTeam) : null;
+            if (best) {
+                state.motm = best.name;
+                document.getElementById('motm-name').textContent = best.name;
+                const parts = [];
+                if (best.runs > 0) parts.push(`${best.runs} run${best.runs > 1 ? 's' : ''}`);
+                if (best.wickets > 0) parts.push(`${best.wickets} wicket${best.wickets > 1 ? 's' : ''}`);
+                document.getElementById('motm-stats').textContent = parts.length ? `⭐ ${parts.join(' & ')}` : '⭐ Man of the Match';
+            } else {
+                const motm = state.playingXI[0] || { name: 'Player' };
+                state.motm = motm.name;
+                document.getElementById('motm-name').textContent = motm.name;
+                document.getElementById('motm-stats').textContent = `⭐ Man of the Match`;
+            }
+        }
+
+        // Deterministic-ish outcome for when the USER is bowling: computed
+        // instantly from the impact point (line/length) and delivery variety,
+        // no AI-batting animation or extra wait.
+        function computeInstantBallOutcome(line, length, variation) {
+            let wicketChance = 0.06;
+            let dotChance = 0.22;
+            let singleChance = 0.32;
+            let boundaryChance = 0.10;
+            let sixChance = 0.03;
+
+            if (length === 'good') {
+                wicketChance += 0.10; dotChance += 0.12; boundaryChance -= 0.04; singleChance -= 0.03;
+            } else if (length === 'full') {
+                wicketChance += 0.05; boundaryChance += 0.06; sixChance += 0.02; dotChance -= 0.02;
+            } else if (length === 'short') {
+                wicketChance -= 0.02; boundaryChance += 0.10; sixChance += 0.05; dotChance -= 0.05;
+            }
+
+            if (line === 'middle') {
+                wicketChance += 0.06; dotChance += 0.04;
+            } else if (line === 'off') {
+                wicketChance += 0.02; boundaryChance += 0.02;
+            } else if (line === 'leg') {
+                boundaryChance += 0.04; sixChance += 0.01;
+            }
+
+            const trickyVariations = ['swing-in', 'swing-out', 'reverse', 'leg-cutter', 'off-cutter', 'googly', 'doosra', 'carrom'];
+            if (trickyVariations.includes(variation)) {
+                wicketChance += 0.05; dotChance += 0.06; boundaryChance -= 0.03; singleChance -= 0.02;
+            }
+
+            wicketChance = Math.max(0.03, Math.min(0.34, wicketChance));
+            dotChance = Math.max(0.10, Math.min(0.45, dotChance));
+            boundaryChance = Math.max(0.03, Math.min(0.28, boundaryChance));
+            sixChance = Math.max(0.01, Math.min(0.14, sixChance));
+            singleChance = Math.max(0.15, singleChance);
+
+            const r = Math.random();
+            let cum = wicketChance;
+            if (r < cum) {
+                const isBowledStyle = (line === 'middle' || line === 'leg') && (length === 'good' || length === 'full');
+                const outType = isBowledStyle ? (Math.random() < 0.5 ? 'Bowled' : 'LBW') : 'Caught';
+                return { runs: 0, isOut: true, outType };
+            }
+            cum += sixChance;
+            if (r < cum) return { runs: 6, isOut: false, outType: '' };
+            cum += boundaryChance;
+            if (r < cum) return { runs: 4, isOut: false, outType: '' };
+            cum += dotChance;
+            if (r < cum) return { runs: 0, isOut: false, outType: '' };
+            cum += singleChance;
+            if (r < cum) return { runs: 1, isOut: false, outType: '' };
+
+            const rem = Math.random();
+            return rem < 0.75 ? { runs: 2, isOut: false, outType: '' } : { runs: 3, isOut: false, outType: '' };
+        }
+
+        // Called the instant a ball you bowled reaches the batsman: no AI
+        // batting animation, no extra delay — score is applied immediately.
+        function resolveInstantAIBatting() {
+            if (state.isMatchOver) { state.isBallInPlay = false; return; }
+            const ball = state.ball;
+            const line = ball ? ball.impactLine : state.impactLine;
+            const length = ball ? ball.impactLength : state.impactLength;
+            const variation = ball ? ball.variation : state.variation;
+
+            state.ball = null;
+            state.isBallInPlay = false;
+            state.ballReady = false;
+
+            const outcome = computeInstantBallOutcome(line, length, variation);
+
+            if (outcome.isOut) {
+                gameMsg.textContent = `OUT! ${outcome.outType}`;
+                showResultBanner(`OUT! ${outcome.outType}`, 'out');
+                triggerStumpsFall();
+            } else if (outcome.runs === 6) {
+                gameMsg.textContent = 'SIX! AI smashes it!';
+                showResultBanner('SIX!', 'six');
+            } else if (outcome.runs === 4) {
+                gameMsg.textContent = 'FOUR! Great shot by AI!';
+                showResultBanner('FOUR!', 'four');
+            } else if (outcome.runs === 0) {
+                gameMsg.textContent = 'Dot ball. No run.';
+            } else {
+                gameMsg.textContent = `AI scores ${outcome.runs} run${outcome.runs > 1 ? 's' : ''}`;
+            }
+
+            drawPitch();
+            finishBattingTurn(outcome.runs, outcome.isOut, outcome.outType, false);
+        }
 
         // ---------- DOM REFS ----------
         const $ = id => document.getElementById(id);
@@ -1649,6 +1804,8 @@
             state.currentOverIndex = 0;
             state.ballsInOver = 0;
             state.bowlingOrder = [];
+            state.battingOrder = buildBattingOrder(state.battingTeam);
+            state.currentBatsmanIdx = 0;
 
             selectBowlers();
             startNewOver();
@@ -1689,25 +1846,26 @@
                     bowlers.push({ ...state.playingXI[i], role: 'BOWL' });
                 }
             }
+            const bowlingTeam = state.bowlingTeam;
             const selected = [];
             if (overs === 1) {
-                const b = { ...random(bowlers), maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 };
+                const b = { ...random(bowlers), maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0, team: bowlingTeam };
                 selected.push(b);
             } else if (overs === 2) {
                 const shuffled = shuffleArray([...bowlers]);
                 for (let i = 0; i < 2 && i < shuffled.length; i++) {
-                    selected.push({ ...shuffled[i], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 });
+                    selected.push({ ...shuffled[i], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0, team: bowlingTeam });
                 }
             } else if (overs === 5) {
                 const shuffled = shuffleArray([...bowlers]);
                 if (shuffled.length > 0) {
-                    selected.push({ ...shuffled[0], maxBalls: 12, ballsBowled: 0, runsConceded: 0, wickets: 0 });
+                    selected.push({ ...shuffled[0], maxBalls: 12, ballsBowled: 0, runsConceded: 0, wickets: 0, team: bowlingTeam });
                 }
                 for (let i = 1; i < Math.min(4, shuffled.length); i++) {
-                    selected.push({ ...shuffled[i], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 });
+                    selected.push({ ...shuffled[i], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0, team: bowlingTeam });
                 }
                 while (selected.length < 4) {
-                    const extra = { ...selected[0], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 };
+                    const extra = { ...selected[0], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0, team: bowlingTeam };
                     selected.push(extra);
                 }
             }
@@ -2086,7 +2244,7 @@
             }
 
             const speed = 20 + Math.random() * 60;
-            const isNoBall = speed > 70;
+            const isNoBall = Math.random() < 0.07;
             autoPickDelivery();
 
             document.getElementById('needle-no-ball-text').textContent =
@@ -2225,7 +2383,7 @@
                     state.isBallInPlay = false;
                     state.ballReady = true;
                     if (state.isAIBatting) {
-                        aiBatting();
+                        resolveInstantAIBatting();
                     } else {
                         gameMsg.textContent = 'Error: AI not batting.';
                     }
@@ -2254,7 +2412,7 @@
             state.impactLine = random(lines);
             state.impactLength = random(lengths);
             const speed = 20 + Math.random() * 60;
-            const isNoBall = speed > 70;
+            const isNoBall = Math.random() < 0.07;
 
             if (isNoBall) {
                 state.runs += 1;
@@ -2592,10 +2750,16 @@
 
         // ---------- SHARED END-OF-BALL BOOKKEEPING (batting side) ----------
         function finishBattingTurn(runs, isOut, outType, isDrop) {
+            const bat = state.battingOrder[state.currentBatsmanIdx];
             if (isOut) {
                 state.wickets += 1;
+                if (bat) bat.isOut = true;
+                if (state.currentBowler) state.currentBowler.wickets += 1;
+                if (state.currentBatsmanIdx < state.battingOrder.length - 1) state.currentBatsmanIdx++;
             } else {
                 state.runs += runs;
+                if (bat) bat.runs += runs;
+                if (state.currentBowler) state.currentBowler.runsConceded += runs;
             }
 
             state.isBallInPlay = false;
@@ -2880,6 +3044,9 @@
                 state.currentInnings = 2;
                 state.innings1Team = state.battingTeam;
 
+                state.innings1BattingOrder = state.battingOrder;
+                state.innings1BowlingOrder = state.bowlingOrder;
+
                 const temp = state.battingTeam;
                 state.battingTeam = state.bowlingTeam;
                 state.bowlingTeam = temp;
@@ -2893,6 +3060,8 @@
                 state.isAIBowling = !state.isAIBowling;
                 state.isAIBatting = !state.isAIBatting;
                 selectBowlers();
+                state.battingOrder = buildBattingOrder(state.battingTeam);
+                state.currentBatsmanIdx = 0;
                 state.currentOverIndex = 0;
                 state.ballsInOver = 0;
                 startNewOver();
@@ -2936,7 +3105,9 @@
                 const wickets2 = state.innings2.wickets;
 
                 let winMessage = '';
+                let winningTeam = null;
                 if (runs2 > runs1) {
+                    winningTeam = team2;
                     const wicketsRemaining = 10 - wickets2;
                     if (wicketsRemaining > 0) {
                         winMessage = `${team2.toUpperCase()} won by ${wicketsRemaining} wicket${wicketsRemaining>1?'s':''}!`;
@@ -2946,16 +3117,16 @@
                 } else if (runs2 === runs1) {
                     winMessage = `Match Tied!`;
                 } else {
+                    winningTeam = team1;
                     const runsShort = runs1 - runs2;
                     winMessage = `${team1.toUpperCase()} won by ${runsShort} run${runsShort>1?'s':''}!`;
                 }
 
                 document.getElementById('winner-text').textContent = winMessage;
 
-                const motm = state.playingXI[0] || { name: 'Player' };
-                state.motm = motm.name;
-                document.getElementById('motm-name').textContent = motm.name;
-                document.getElementById('motm-stats').textContent = `⭐ Man of the Match`;
+                state.innings2BattingOrder = state.battingOrder;
+                state.innings2BowlingOrder = state.bowlingOrder;
+                applyMotm(winningTeam);
 
                 const s1 = state.innings1,
                     s2 = state.innings2;
@@ -2998,10 +3169,14 @@
             const winMsg = `🎉 ${winner.toUpperCase()} WON BY ${wicketsRemaining} WICKET${wicketsRemaining !== 1 ? 'S' : ''}! 🎉`;
             document.getElementById('winner-text').textContent = winMsg;
 
-            const motm = state.playingXI[0] || { name: 'Player' };
-            state.motm = motm.name;
-            document.getElementById('motm-name').textContent = motm.name;
-            document.getElementById('motm-stats').textContent = `⭐ Man of the Match`;
+            if (state.currentInnings === 1) {
+                state.innings1BattingOrder = state.battingOrder;
+                state.innings1BowlingOrder = state.bowlingOrder;
+            } else {
+                state.innings2BattingOrder = state.battingOrder;
+                state.innings2BowlingOrder = state.bowlingOrder;
+            }
+            applyMotm(winner);
 
             const overs1 = Math.floor(s1.balls / 6) + '.' + (s1.balls % 6);
             const overs2 = Math.floor(s2.balls / 6) + '.' + (s2.balls % 6);
