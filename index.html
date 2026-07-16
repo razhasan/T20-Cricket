@@ -311,11 +311,13 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
+            z-index: 6;
         }
         .pitch-figure {
             position: absolute;
             pointer-events: none;
             filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.35));
+            z-index: 2;
         }
         .figure-batsman {
             left: 48%;
@@ -1010,7 +1012,7 @@
             <div id="bat-controls-container" style="display:none;">
                 <div class="bat-controls">
                     <button class="loft-btn" id="loft-btn">🏏 LOFT</button>
-                    <span style="font-size:0.7rem;color:#aaa;margin-left:8px;">Drag on the pitch or use the D‑pad (right)</span>
+                    <span style="font-size:0.7rem;color:#aaa;margin-left:8px;">Drag on the pitch or use the D‑pad (right) — anytime during the ball's flight</span>
                 </div>
                 <div class="bat-timing-meter">
                     <div class="timing-track">
@@ -1341,10 +1343,10 @@
             <h4>🏏 Batting</h4>
             <ul>
                 <li>Watch the ball leave the bowler's hand and travel down the pitch.</li>
-                <li>Play your shot either by <b>dragging on the pitch</b> toward where you want to hit it, or using the <b>D‑pad on the right</b> — both work, use whichever you prefer.</li>
+                <li>You can play your shot <b>as soon as the ball is released</b> — drag on the pitch toward where you want to hit it, or use the <b>D‑pad on the right</b>, at any point during the ball's flight. You don't have to wait for it to arrive.</li>
                 <li>Toggle <b>LOFT</b> for a chance at a big hit — higher reward, but a fielder can catch you out if it's not timed well.</li>
-                <li>Timing matters: the meter shows EARLY / PERFECT / LATE as the ball arrives.</li>
-                <li>Aim for the gaps between fielders for boundaries; hitting straight at a fielder risks being caught (though catches are sometimes dropped — more often early in the innings).</li>
+                <li>Timing matters: committing early, on time, or late changes whether you get EARLY / PERFECT / LATE timing.</li>
+                <li>Aim for the gaps between fielders for boundaries; hitting straight at a fielder risks being caught. Catches are more likely to be held later in the innings — early on, fielders are more likely to drop them.</li>
             </ul>
             <h4>⚡ Bowling</h4>
             <ul>
@@ -1404,6 +1406,8 @@
             matchWinner: null,
             motm: null,
             ball: null,
+            outBall: null,
+            shotPlayed: false,
             ballReady: false,
             fielderPositions: null,
             fieldMode: 'auto',
@@ -1930,6 +1934,9 @@
             if (state.ball) {
                 drawBall(state.ball);
             }
+            if (state.outBall) {
+                drawBall(state.outBall);
+            }
 
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 13px sans-serif';
@@ -2349,6 +2356,16 @@
             state.ball = ball;
             state.ballReady = false;
             state.isBallInPlay = true;
+            state.shotPlayed = false;
+
+            // The batter no longer has to wait for the ball to arrive: enable the
+            // bat controls (LOFT + D-pad + drag) the instant the ball is released
+            // so a shot can be committed at any point during its flight.
+            document.getElementById('bowl-controls-container').style.display = 'none';
+            setBowlDpadEnabled(false);
+            document.getElementById('bat-controls-container').style.display = 'block';
+            setDpadEnabled(true);
+            gameMsg.textContent = '⚡ Ball released! Drag or use the D‑pad now to play your shot.';
 
             let lastTime = performance.now();
 
@@ -2377,11 +2394,10 @@
                 if (t >= 1 || y > H * 0.85) {
                     state.isBallInPlay = false;
                     state.ballReady = true;
-                    gameMsg.textContent = '⚡ Tap the pitch or use D‑pad to play your shot!';
-                    document.getElementById('bat-controls-container').style.display = 'block';
-                    setDpadEnabled(true);
-                    document.getElementById('bowl-controls-container').style.display = 'none';
-                    setBowlDpadEnabled(false);
+                    if (!state.shotPlayed) {
+                        // Ball reached the keeper untouched — treat as a left/missed ball.
+                        handleUnplayedBall();
+                    }
                     drawPitch();
                     return;
                 }
@@ -2392,7 +2408,28 @@
             updateScoreboard();
         }
 
+        // Called when the incoming ball reaches the keeper's end without the
+        // player ever committing to a shot (drag / tap / D-pad).
+        function handleUnplayedBall() {
+            if (state.shotPlayed || state.isMatchOver) return;
+            state.shotPlayed = true;
+            state.ball = null;
+            gameMsg.textContent = 'Ball left alone — 0 runs.';
+            document.getElementById('timing-indicator').textContent = '⏱️ Timing: -';
+            finishBattingTurn(0, false, '', false);
+        }
+
         // ---------- SHOT RESULT CALCULATION ----------
+        function pointOnEllipseBoundary(cx, cy, rx, ry, dirX, dirY) {
+            const safeRx = Math.max(rx, 1),
+                safeRy = Math.max(ry, 1);
+            const theta = Math.atan2(dirY / safeRy, dirX / safeRx || 0.0001);
+            return {
+                x: cx + safeRx * Math.cos(theta),
+                y: cy + safeRy * Math.sin(theta)
+            };
+        }
+
         function calculateShotResult(aimX, aimY, timing, isLoft, ballX, ballY) {
             const W = canvas.width,
                 H = canvas.height;
@@ -2424,14 +2461,21 @@
             const catchThreshold = 50;
             const isFielded = nearestDist < catchThreshold && nearestIdx >= 0;
 
-            // Drop chance is higher early in the innings (fielders less sharp / more
-            // pressure-free) and tightens up in the death overs: ~20% -> ~10%.
-            const oversProgress = Math.min(1, state.balls / Math.max(1, state.selectedOvers * 6));
-            const dropChance = 0.20 - oversProgress * 0.10;
+            // Catch probability starts low (~10%) early in the innings and climbs
+            // toward the death overs / final balls, when fielders are sharpest.
+            const totalBalls = Math.max(1, state.selectedOvers * 6);
+            const ballsRemaining = totalBalls - state.balls;
+            let catchChance = 0.10 + (state.balls / totalBalls) * 0.55;
+            if (ballsRemaining <= 3) catchChance += 0.25;
+            catchChance = Math.min(catchChance, 0.92);
+            const dropChance = 1 - catchChance;
+
             let isDrop = false;
             let isOut = false;
             let outType = '';
             let runs = 0;
+            let landingX = endX,
+                landingY = endY;
 
             // Bowled/LBW if impact near stumps and timing poor
             const isNearStumps = (state.impactLine === 'middle' || state.impactLine === 'leg') &&
@@ -2446,7 +2490,7 @@
                     gameMsg.textContent = `OUT! ${outType}!`;
                     showResultBanner(`OUT! ${outType}`, 'out');
                     triggerStumpsFall();
-                    return { runs, isOut, outType, isDrop };
+                    return { runs, isOut, outType, isDrop, landingX: batX, landingY: batY + H * 0.05 };
                 }
             }
 
@@ -2455,6 +2499,8 @@
             const effectiveDist = nearestDist / loftBonus;
 
             if (isFielded && effectiveDist < catchThreshold) {
+                landingX = state.fielderPositions[nearestIdx].x;
+                landingY = state.fielderPositions[nearestIdx].y;
                 if (Math.random() < dropChance) {
                     isDrop = true;
                     isOut = false;
@@ -2497,10 +2543,96 @@
                     }
                 }
                 if (runs === 0 && !isOut) runs = 1;
+
+                // Push the visual landing spot out to the boundary rope for
+                // fours/sixes so the ball's direction and distance read clearly.
+                if (runs >= 4) {
+                    const cx = W * 0.5,
+                        cy = H * 0.5;
+                    const rx = W * 0.5 * 0.96,
+                        ry = H * 0.46 * 0.96;
+                    const boundaryPt = pointOnEllipseBoundary(cx, cy, rx, ry, endX - cx, endY - cy);
+                    landingX = boundaryPt.x;
+                    landingY = boundaryPt.y;
+                }
             }
 
             document.getElementById('timing-indicator').textContent = `⏱️ Timing: ${timing.toUpperCase()}`;
-            return { runs, isOut, outType, isDrop };
+            return { runs, isOut, outType, isDrop, landingX, landingY };
+        }
+
+        // ---------- OUTGOING SHOT ANIMATION ----------
+        function animateOutgoingBall(fromX, fromY, toX, toY, duration, onDone) {
+            const start = performance.now();
+            state.outBall = { x: fromX, y: fromY, trail: [] };
+
+            function step(time) {
+                const elapsed = time - start;
+                const p = Math.min(elapsed / duration, 1);
+                const ease = p; // linear reads clearly for a struck cricket ball
+                const x = fromX + (toX - fromX) * ease;
+                const y = fromY + (toY - fromY) * ease;
+                if (state.outBall) {
+                    state.outBall.x = x;
+                    state.outBall.y = y;
+                    state.outBall.trail.push({ x, y });
+                    if (state.outBall.trail.length > 16) state.outBall.trail.shift();
+                }
+                drawPitch();
+                if (p < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    state.outBall = null;
+                    drawPitch();
+                    onDone();
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        // ---------- SHARED END-OF-BALL BOOKKEEPING (batting side) ----------
+        function finishBattingTurn(runs, isOut, outType, isDrop) {
+            if (isOut) {
+                state.wickets += 1;
+            } else {
+                state.runs += runs;
+            }
+
+            state.isBallInPlay = false;
+            state.ballReady = false;
+            state.shotPlayed = false;
+
+            if (state.wickets >= 10 || state.balls >= state.selectedOvers * 6) {
+                showResultBanner('Innings Complete', 'info');
+                endInnings();
+                return;
+            }
+            if (state.currentInnings === 2 && state.target !== null && state.runs >= state.target) {
+                gameMsg.textContent = state.isAIBatting ? '🏆 Target chased! AI wins!' : '🏆 Target chased! You win!';
+                endMatch(state.battingTeam);
+                return;
+            }
+
+            updateScoreboard();
+            drawPitch();
+
+            if (state.isAIBowling && !state.isMatchOver) {
+                // User is batting; next ball comes from the AI bowler.
+                document.getElementById('bat-controls-container').style.display = 'none';
+                setDpadEnabled(false);
+                document.getElementById('bowl-controls-container').style.display = 'none';
+                setBowlDpadEnabled(false);
+                setTimeout(() => aiBowling(), 1000);
+            } else if (state.isAIBatting && !state.isMatchOver) {
+                // AI is batting; hand control back to the user for bowling.
+                document.getElementById('bowl-controls-container').style.display = 'block';
+                setBowlDpadEnabled(true);
+                document.getElementById('bat-controls-container').style.display = 'none';
+                setDpadEnabled(false);
+                statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
+                statusBanner.className = 'bowling';
+                gameMsg.textContent = 'Press BOWL to deliver.';
+            }
         }
 
         // ---------- AI BATTING ----------
@@ -2530,51 +2662,24 @@
             if (direction === 'left') aimX = batX - 70;
             else if (direction === 'right') aimX = batX + 70;
             const aimY = refY - 40;
-            const result = calculateShotResult(aimX, aimY, timing, isLoft, ball.x, ball.y);
-
-            if (result.isOut) {
-                state.wickets += 1;
-                gameMsg.textContent = `AI OUT! ${result.outType}`;
-                showResultBanner(`OUT! ${result.outType}`, 'out');
-                triggerStumpsFall();
-            } else {
-                state.runs += result.runs;
-                gameMsg.textContent = `AI scores ${result.runs} runs`;
-            }
+            const contactX = ball.x,
+                contactY = ball.y;
+            const result = calculateShotResult(aimX, aimY, timing, isLoft, contactX, contactY);
 
             state.ball = null;
             state.isBallInPlay = false;
             state.ballReady = false;
 
-            if (state.wickets >= 10 || state.balls >= state.selectedOvers * 6) {
-                showResultBanner('Innings Complete', 'info');
-                endInnings();
-                return;
-            }
-            if (state.currentInnings === 2 && state.target !== null && state.runs >= state.target) {
-                gameMsg.textContent = '🏆 Target chased! AI wins!';
-                endMatch(state.battingTeam);
-                return;
-            }
+            const isOut = result.isOut;
+            const label = isOut ? `AI OUT! ${result.outType}` : `AI plays a shot...`;
+            gameMsg.textContent = label;
 
-            updateScoreboard();
-            drawPitch();
-
-            if (state.isAIBatting && !state.isMatchOver) {
-                document.getElementById('bowl-controls-container').style.display = 'block';
-                setBowlDpadEnabled(true);
-                document.getElementById('bat-controls-container').style.display = 'none';
-                setDpadEnabled(false);
-                statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
-                statusBanner.className = 'bowling';
-                gameMsg.textContent = 'Press BOWL to deliver.';
-            } else if (state.isAIBowling && !state.isMatchOver) {
-                document.getElementById('bat-controls-container').style.display = 'none';
-                setDpadEnabled(false);
-                document.getElementById('bowl-controls-container').style.display = 'none';
-                setBowlDpadEnabled(false);
-                setTimeout(() => aiBowling(), 1000);
-            }
+            animateOutgoingBall(contactX, contactY, result.landingX, result.landingY, 550, function() {
+                if (!isOut) {
+                    gameMsg.textContent = `AI scores ${result.runs} runs`;
+                }
+                finishBattingTurn(result.runs, isOut, result.outType, result.isDrop);
+            });
         }
 
         // ---------- USER BATTING ----------
@@ -2637,6 +2742,13 @@
             document.getElementById('btn-bowl').click();
         }
 
+        function canPlayShotNow() {
+            // The player can commit to a shot at ANY point during the ball's
+            // flight (from the moment it's released to the moment it arrives),
+            // not only once it "arrives". A shot can only be played once per ball.
+            return state.isAIBowling && !!state.ball && !state.isMatchOver && !state.shotPlayed;
+        }
+
         function startDrag(e, canvasX, canvasY) {
             const rect = canvas.getBoundingClientRect();
             const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
@@ -2648,7 +2760,7 @@
                 return;
             }
 
-            if (!state.ballReady || state.isMatchOver || state.isAIBatting) return;
+            if (!canPlayShotNow()) return;
             dragStartX = x;
             dragStartY = y;
             window._lastDragX = x;
@@ -2661,7 +2773,7 @@
             const rect = canvas.getBoundingClientRect();
             const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
             const y = canvasY !== undefined ? canvasY : (e.clientY - rect.top) / rect.height * canvas.height;
-            if (!isDragging || !state.ballReady) return;
+            if (!isDragging || !canPlayShotNow()) return;
             window._lastDragX = x;
             window._lastDragY = y;
             updateDragIndicator(canvas.width * 0.48, canvas.height * 0.6, x, y);
@@ -2669,7 +2781,7 @@
 
         function endDrag() {
             clearDragIndicator();
-            if (!isDragging || !state.ballReady || state.isMatchOver || state.isAIBatting) {
+            if (!isDragging || !canPlayShotNow()) {
                 isDragging = false;
                 return;
             }
@@ -2680,7 +2792,7 @@
         }
 
         function tapShot(direction) {
-            if (!state.ballReady || state.isMatchOver || state.isAIBatting) return;
+            if (!canPlayShotNow()) return;
             const batX = canvas.width * 0.48;
             let endX = batX;
             if (direction === 'left') endX = batX - 70;
@@ -2712,8 +2824,8 @@
         });
 
         function processUserShot(endX, endY) {
-            if (!state.ballReady || state.isMatchOver) return;
-            state.ballReady = false;
+            if (!canPlayShotNow()) return;
+            state.shotPlayed = true;
             const ball = state.ball;
             if (!ball) return;
 
@@ -2733,55 +2845,31 @@
             updateBatTimingNeedle(timing);
 
             const isLoft = state.loftActive;
-            const result = calculateShotResult(endX, endY, timing, isLoft, ball.x, ball.y);
+            const contactX = ball.x,
+                contactY = ball.y;
+            const result = calculateShotResult(endX, endY, timing, isLoft, contactX, contactY);
 
-            if (result.isOut) {
-                state.wickets += 1;
-                gameMsg.textContent = `OUT! ${result.outType}`;
-                showResultBanner(`OUT! ${result.outType}`, 'out');
-                triggerStumpsFall();
-            } else {
-                state.runs += result.runs;
-                if (result.isDrop) {
-                    gameMsg.textContent = `Dropped catch! ${result.runs} run(s)`;
-                } else {
-                    gameMsg.textContent = `${result.runs} runs (${timing})`;
-                }
-            }
-
+            // Freeze/remove the incoming ball now; the outgoing shot animation
+            // takes over so the player can see exactly where it goes.
             state.ball = null;
             state.isBallInPlay = false;
             state.ballReady = false;
 
-            if (state.wickets >= 10 || state.balls >= state.selectedOvers * 6) {
-                showResultBanner('Innings Complete', 'info');
-                endInnings();
-                return;
-            }
-            if (state.currentInnings === 2 && state.target !== null && state.runs >= state.target) {
-                gameMsg.textContent = '🏆 Target chased! You win!';
-                endMatch(state.battingTeam);
-                return;
+            const isOut = result.isOut;
+            if (!isOut) {
+                gameMsg.textContent = result.isDrop ?
+                    `Dropped catch! Running...` :
+                    `Shot played (${timing})...`;
             }
 
-            updateScoreboard();
-            drawPitch();
-
-            if (state.isAIBowling && !state.isMatchOver) {
-                document.getElementById('bat-controls-container').style.display = 'none';
-                setDpadEnabled(false);
-                document.getElementById('bowl-controls-container').style.display = 'none';
-                setBowlDpadEnabled(false);
-                setTimeout(() => aiBowling(), 1000);
-            } else if (state.isAIBatting && !state.isMatchOver) {
-                document.getElementById('bowl-controls-container').style.display = 'block';
-                setBowlDpadEnabled(true);
-                document.getElementById('bat-controls-container').style.display = 'none';
-                setDpadEnabled(false);
-                statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
-                statusBanner.className = 'bowling';
-                gameMsg.textContent = 'Press BOWL to deliver.';
-            }
+            animateOutgoingBall(contactX, contactY, result.landingX, result.landingY, 550, function() {
+                if (!isOut) {
+                    gameMsg.textContent = result.isDrop ?
+                        `Dropped catch! ${result.runs} run(s)` :
+                        `${result.runs} runs (${timing})`;
+                }
+                finishBattingTurn(result.runs, isOut, result.outType, result.isDrop);
+            });
         }
 
         // ---------- END INNINGS ----------
@@ -2815,6 +2903,7 @@
                 drawPitch();
                 state.ball = null;
                 state.ballReady = false;
+                state.shotPlayed = false;
 
                 if (state.isAIBowling) {
                     document.getElementById('bowl-controls-container').style.display = 'none';
