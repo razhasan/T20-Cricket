@@ -157,37 +157,50 @@
         }
         .player-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6px;
-            max-height: 300px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            max-height: 340px;
             overflow-y: auto;
             padding: 4px;
         }
         .player-card {
             background: #2a4055;
-            padding: 6px 8px;
-            border-radius: 10px;
+            padding: 8px 4px 6px;
+            border-radius: 14px;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 6px;
-            font-size: 0.75rem;
+            gap: 4px;
+            font-size: 0.68rem;
             border: 2px solid transparent;
             cursor: pointer;
             transition: 0.15s;
+            text-align: center;
         }
         .player-card.selected {
             border-color: #4caf50;
             background: #1e4a2a;
+            transform: scale(1.03);
+        }
+        .player-card .avatar-wrap {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: #1a2e3f;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            flex-shrink: 0;
+        }
+        .player-card .p-name {
+            font-weight: 600;
+            line-height: 1.15;
         }
         .player-card .role {
             background: #1a2e3f;
-            padding: 2px 8px;
+            padding: 1px 8px;
             border-radius: 12px;
             font-size: 0.55rem;
             color: #aaa;
-        }
-        .player-card .emoji {
-            font-size: 1rem;
         }
         #pick-count {
             text-align: center;
@@ -293,6 +306,50 @@
             touch-action: none;
             cursor: pointer;
             display: block;
+        }
+        .pitch-stage {
+            position: relative;
+        }
+        .pitch-figure {
+            position: absolute;
+            pointer-events: none;
+            filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.35));
+        }
+        .figure-batsman {
+            left: 48%;
+            top: 66%;
+            width: 66px;
+            height: 108px;
+            transform: translate(-50%, -68%);
+            transform-origin: 50% 88%;
+            transition: transform 0.15s ease;
+        }
+        .figure-batsman.swinging {
+            animation: batSwing 0.4s ease;
+        }
+        @keyframes batSwing {
+            0% { transform: translate(-50%, -68%) rotate(0deg); }
+            40% { transform: translate(-50%, -68%) rotate(-38deg); }
+            100% { transform: translate(-50%, -68%) rotate(0deg); }
+        }
+        .figure-bowler {
+            left: 48%;
+            top: 8%;
+            width: 52px;
+            height: 86px;
+            transform: translate(-50%, -10%);
+        }
+        .figure-keeper {
+            left: 37%;
+            top: 68%;
+            width: 34px;
+            height: 46px;
+            transform: translate(-50%, -30%);
+        }
+        @media (max-width: 420px) {
+            .figure-batsman { width: 48px; height: 82px; }
+            .figure-bowler { width: 38px; height: 64px; }
+            .figure-keeper { width: 24px; height: 34px; }
         }
 
         /* Bowling Controls */
@@ -592,7 +649,12 @@
             </div>
             <div id="status-banner">Loading...</div>
 
-            <canvas id="pitch-canvas" width="500" height="280"></canvas>
+            <div class="pitch-stage">
+                <canvas id="pitch-canvas" width="500" height="280"></canvas>
+                <div class="pitch-figure figure-bowler" id="figure-bowler"></div>
+                <div class="pitch-figure figure-keeper" id="figure-keeper"></div>
+                <div class="pitch-figure figure-batsman" id="figure-batsman"></div>
+            </div>
 
             <!-- Bowling Controls (hidden when user bats) -->
             <div id="bowl-controls-container" style="display:none;">
@@ -732,6 +794,117 @@
             ]
         };
 
+        // ---------- VISUAL ASSETS: TEAM COLORS + SVG AVATARS ----------
+        const TEAM_COLORS = {
+            india: { primary: '#1a4fa0', secondary: '#0d2f66', trim: '#ff9800' },
+            pakistan: { primary: '#0f5c2e', secondary: '#083d1e', trim: '#ffffff' }
+        };
+        const SKIN = '#c98a5e';
+
+        // Small headshot-style bust used on player selection cards
+        function avatarBustSVG(role, teamKey) {
+            const c = TEAM_COLORS[teamKey] || TEAM_COLORS.india;
+            let headgear = '';
+            if (role === 'BAT') {
+                headgear = `
+                    <path d="M28,38 Q28,10 50,10 Q72,10 72,38 L72,44 L28,44 Z" fill="${c.primary}"/>
+                    <path d="M28,42 Q50,50 72,42 L72,46 Q50,54 28,46 Z" fill="${c.secondary}"/>
+                    <path d="M40,44 L40,60 M46,44 L46,62 M54,44 L54,62 M60,44 L60,60" stroke="#ddd" stroke-width="2"/>
+                    <path d="M30,39 Q50,33 70,39" stroke="${c.trim}" stroke-width="3" fill="none"/>`;
+            } else if (role === 'WK') {
+                headgear = `
+                    <path d="M28,38 Q28,10 50,10 Q72,10 72,38 L72,46 L28,46 Z" fill="${c.secondary}"/>
+                    <path d="M38,46 L38,62 M50,46 L50,64 M62,46 L62,62" stroke="#ddd" stroke-width="2"/>`;
+            } else if (role === 'BOWL') {
+                headgear = `
+                    <path d="M26,36 Q26,14 50,14 Q74,14 74,36 L74,32 Q50,24 26,32 Z" fill="${c.primary}"/>
+                    <path d="M50,14 Q30,14 25,33 L19,35 Q28,19 50,17 Z" fill="${c.secondary}"/>`;
+            } else {
+                headgear = `<rect x="26" y="25" width="48" height="9" rx="4" fill="${c.trim}"/>`;
+            }
+            return `<svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+                <circle cx="50" cy="50" r="49" fill="${c.secondary}"/>
+                <circle cx="50" cy="50" r="45" fill="${c.primary}" opacity="0.55"/>
+                <path d="M6,102 Q50,58 94,102 Z" fill="${c.primary}"/>
+                <path d="M40,64 L50,76 L60,64 L56,58 L44,58 Z" fill="${c.secondary}"/>
+                <rect x="42" y="49" width="16" height="17" rx="6" fill="${SKIN}"/>
+                <circle cx="50" cy="42" r="17" fill="${SKIN}"/>
+                ${headgear}
+                <circle cx="50" cy="50" r="48" fill="none" stroke="${c.trim}" stroke-width="3"/>
+            </svg>`;
+        }
+
+        // Full-body pitch figures
+        function battingFigureSVG(teamKey) {
+            const c = TEAM_COLORS[teamKey] || TEAM_COLORS.india;
+            return `<svg viewBox="0 0 100 200" width="100%" height="100%">
+                <rect x="37" y="118" width="11" height="55" rx="4" fill="#f5f5f0"/>
+                <rect x="52" y="118" width="11" height="55" rx="4" fill="#f5f5f0"/>
+                <rect x="33" y="169" width="18" height="8" rx="3" fill="#fff"/>
+                <rect x="49" y="169" width="18" height="8" rx="3" fill="#fff"/>
+                <path d="M32,80 Q50,68 68,80 L70,130 Q50,138 30,130 Z" fill="${c.primary}"/>
+                <path d="M32,82 Q50,92 68,82" fill="none" stroke="${c.secondary}" stroke-width="3"/>
+                <path d="M32,85 Q17,100 21,120" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
+                <path d="M68,85 Q81,95 75,112" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
+                <rect x="70" y="103" width="8" height="62" rx="3" fill="#d9a441" transform="rotate(18 74 105)"/>
+                <circle cx="21" cy="120" r="7" fill="#fff"/>
+                <circle cx="75" cy="112" r="7" fill="#fff"/>
+                <rect x="44" y="69" width="12" height="13" fill="${SKIN}"/>
+                <circle cx="50" cy="57" r="16" fill="${SKIN}"/>
+                <path d="M32,51 Q32,29 50,29 Q68,29 68,51 L68,58 L32,58 Z" fill="${c.primary}"/>
+                <path d="M32,56 Q50,64 68,56 L68,60 Q50,68 32,60 Z" fill="${c.secondary}"/>
+                <path d="M42,58 L42,72 M50,58 L50,74 M58,58 L58,72" stroke="#ddd" stroke-width="1.5"/>
+            </svg>`;
+        }
+
+        function bowlingFigureSVG(teamKey) {
+            const c = TEAM_COLORS[teamKey] || TEAM_COLORS.pakistan;
+            return `<svg viewBox="0 0 100 160" width="100%" height="100%">
+                <path d="M46,118 L34,153" stroke="${SKIN}" stroke-width="10" stroke-linecap="round"/>
+                <path d="M56,118 L70,148" stroke="${SKIN}" stroke-width="10" stroke-linecap="round"/>
+                <ellipse cx="32" cy="156" rx="10" ry="5" fill="#222"/>
+                <ellipse cx="72" cy="151" rx="10" ry="5" fill="#222"/>
+                <path d="M38,70 Q50,60 62,70 L66,120 Q50,128 34,120 Z" fill="${c.primary}"/>
+                <path d="M60,75 Q78,55 82,28" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
+                <circle cx="82" cy="26" r="7" fill="#fff"/>
+                <path d="M40,78 Q24,90 20,105" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
+                <circle cx="50" cy="57" r="14" fill="${SKIN}"/>
+                <path d="M36,53 Q36,37 50,37 Q64,37 64,53 L64,49 Q50,43 36,49 Z" fill="${c.primary}"/>
+                <path d="M36,51 L28,53 Q36,43 50,41 Z" fill="${c.secondary}"/>
+            </svg>`;
+        }
+
+        function keeperFigureSVG(teamKey) {
+            const c = TEAM_COLORS[teamKey] || TEAM_COLORS.pakistan;
+            return `<svg viewBox="0 0 100 100" width="100%" height="100%">
+                <path d="M30,60 Q50,50 70,60 L72,90 Q50,98 28,90 Z" fill="${c.primary}"/>
+                <path d="M20,70 Q10,75 14,85" stroke="${SKIN}" stroke-width="8" fill="none" stroke-linecap="round"/>
+                <path d="M80,70 Q90,75 86,85" stroke="${SKIN}" stroke-width="8" fill="none" stroke-linecap="round"/>
+                <circle cx="14" cy="86" r="8" fill="#8d6e63"/>
+                <circle cx="86" cy="86" r="8" fill="#8d6e63"/>
+                <circle cx="50" cy="42" r="15" fill="${SKIN}"/>
+                <path d="M35,38 Q35,20 50,20 Q65,20 65,38 L65,44 L35,44 Z" fill="${c.secondary}"/>
+                <path d="M42,44 L42,56 M50,44 L50,58 M58,44 L58,56" stroke="#ddd" stroke-width="1.5"/>
+            </svg>`;
+        }
+
+        function updateFigures() {
+            const batEl = document.getElementById('figure-batsman');
+            const bowlEl = document.getElementById('figure-bowler');
+            const keepEl = document.getElementById('figure-keeper');
+            if (batEl) batEl.innerHTML = battingFigureSVG(state.battingTeam || 'india');
+            if (bowlEl) bowlEl.innerHTML = bowlingFigureSVG(state.bowlingTeam || 'pakistan');
+            if (keepEl) keepEl.innerHTML = keeperFigureSVG(state.bowlingTeam || 'pakistan');
+        }
+
+        function triggerBatSwing() {
+            const el = document.getElementById('figure-batsman');
+            if (!el) return;
+            el.classList.remove('swinging');
+            void el.offsetWidth;
+            el.classList.add('swinging');
+        }
+
         // ---------- GAME STATE ----------
         const state = {
             selectedTeam: null,
@@ -862,8 +1035,11 @@
             state.allPlayers.forEach((p, idx) => {
                 const div = document.createElement('div');
                 div.className = 'player-card' + (p.selected ? ' selected' : '');
-                div.innerHTML =
-                    `<span class="emoji">${p.emoji}</span> ${p.name} <span class="role">${p.role}</span>`;
+                div.innerHTML = `
+                    <div class="avatar-wrap">${avatarBustSVG(p.role, state.selectedTeam)}</div>
+                    <span class="p-name">${p.name}</span>
+                    <span class="role">${p.emoji} ${p.role}</span>
+                `;
                 div.addEventListener('click', () => togglePlayer(idx));
                 playerGrid.appendChild(div);
             });
@@ -980,6 +1156,7 @@
                 state.isAIBatting = true;
             }
             state.userTeam = userTeam;
+            updateFigures();
 
             // Initialize match
             state.currentInnings = 1;
@@ -1129,6 +1306,49 @@
         // ---------- DRAW PITCH ----------
         let animFrame = 0;
 
+        // Polished cricket ball: glossy gradient body, shine highlight and curved seam
+        function drawBall(b) {
+            // Motion trail first, underneath the ball
+            if (b.trail) {
+                for (let i = 0; i < b.trail.length; i++) {
+                    const t = b.trail[i];
+                    ctx.globalAlpha = (i / b.trail.length) * 0.25;
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+            ctx.save();
+            const grad = ctx.createRadialGradient(b.x - 2.5, b.y - 2.5, 1, b.x, b.y, 7.5);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.55, '#f0f0f0');
+            grad.addColorStop(1, '#c9c9c9');
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 7, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.shadowColor = 'rgba(255,255,255,0.85)';
+            ctx.shadowBlur = 9;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            // shine
+            ctx.beginPath();
+            ctx.arc(b.x - 2.3, b.y - 2.3, 1.8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.fill();
+            // curved red seam
+            ctx.strokeStyle = '#e53935';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 5, Math.PI * 0.15, Math.PI * 0.85);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 5, Math.PI * 1.15, Math.PI * 1.85);
+            ctx.stroke();
+            ctx.restore();
+        }
+
         function drawPitch() {
             const W = canvas.width,
                 H = canvas.height;
@@ -1170,82 +1390,14 @@
             }
             ctx.fillRect(stumpX - 2, stumpY + 20, 19, 3);
 
-            // Batsman (simple figure)
-            const batX = W * 0.48,
-                batY = H * 0.65;
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(batX, batY - 6, 9, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(batX, batY + 3);
-            ctx.lineTo(batX, batY + 24);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(batX, batY + 8);
-            ctx.lineTo(batX - 10, batY + 16);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(batX, batY + 8);
-            ctx.lineTo(batX + 10, batY + 16);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(batX, batY + 24);
-            ctx.lineTo(batX - 7, batY + 34);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(batX, batY + 24);
-            ctx.lineTo(batX + 7, batY + 34);
-            ctx.stroke();
-            // Bat
-            ctx.fillStyle = '#ffb300';
-            ctx.fillRect(batX + 9, batY + 18, 5, 16);
-
-            // Wicketkeeper
-            ctx.fillStyle = '#2196f3';
-            ctx.beginPath();
-            ctx.arc(W * 0.42, H * 0.70, 7, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillRect(W * 0.415, H * 0.77, 10, 16);
+            // Batsman, bowler and wicketkeeper are now rendered as real
+            // illustrated figures (see .pitch-figure elements / updateFigures())
+            // layered on top of this canvas, instead of drawn here.
 
             // Ball if in play
             if (state.ball) {
-                ctx.fillStyle = '#FFFFFF';
-                ctx.shadowColor = '#fff';
-                ctx.shadowBlur = 10;
-                ctx.beginPath();
-                ctx.arc(state.ball.x, state.ball.y, 6, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                // Red seam
-                ctx.strokeStyle = '#ff0000';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(state.ball.x - 5, state.ball.y - 2);
-                ctx.lineTo(state.ball.x + 5, state.ball.y - 2);
-                ctx.moveTo(state.ball.x - 5, state.ball.y + 2);
-                ctx.lineTo(state.ball.x + 5, state.ball.y + 2);
-                ctx.stroke();
-                // Trail
-                if (state.ball.trail) {
-                    for (let t of state.ball.trail) {
-                        ctx.globalAlpha = 0.3;
-                        ctx.fillStyle = '#fff';
-                        ctx.beginPath();
-                        ctx.arc(t.x, t.y, 3, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-                    ctx.globalAlpha = 1;
-                }
+                drawBall(state.ball);
             }
-
-            // Labels
-            ctx.fillStyle = '#fff';
-            ctx.font = '10px sans-serif';
-            ctx.fillText('BATSMAN', W * 0.44, H * 0.94);
-            ctx.fillText('BOWLER', W * 0.44, H * 0.12);
-            ctx.fillText('WK', W * 0.36, H * 0.70);
 
             // Over info
             ctx.fillStyle = '#fff';
@@ -1454,22 +1606,6 @@
                     return;
                 }
                 drawPitch();
-                // Draw ball with trail
-                ctx.fillStyle = '#FFFFFF';
-                ctx.shadowColor = '#fff';
-                ctx.shadowBlur = 10;
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.strokeStyle = '#ff0000';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(b.x - 5, b.y - 2);
-                ctx.lineTo(b.x + 5, b.y - 2);
-                ctx.moveTo(b.x - 5, b.y + 2);
-                ctx.lineTo(b.x + 5, b.y + 2);
-                ctx.stroke();
                 requestAnimationFrame(animateBall);
             }
             requestAnimationFrame(animateBall);
@@ -1627,21 +1763,6 @@
                     return;
                 }
                 drawPitch();
-                ctx.fillStyle = '#FFFFFF';
-                ctx.shadowColor = '#fff';
-                ctx.shadowBlur = 10;
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.strokeStyle = '#ff0000';
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(b.x - 5, b.y - 2);
-                ctx.lineTo(b.x + 5, b.y - 2);
-                ctx.moveTo(b.x - 5, b.y + 2);
-                ctx.lineTo(b.x + 5, b.y + 2);
-                ctx.stroke();
                 requestAnimationFrame(animateBall);
             }
             requestAnimationFrame(animateBall);
@@ -1758,6 +1879,7 @@
             state.ballReady = false;
             const ball = state.ball;
             if (!ball) return;
+            triggerBatSwing();
 
             // Determine direction based on drag relative to batsman
             const batX = canvas.width * 0.48;
@@ -1868,6 +1990,7 @@
             state.ballReady = false;
             const ball = state.ball;
             if (!ball) return;
+            triggerBatSwing();
 
             // AI skill level 0.4-0.7
             const skill = 0.4 + Math.random() * 0.3;
@@ -1975,6 +2098,7 @@
                 const temp = state.battingTeam;
                 state.battingTeam = state.bowlingTeam;
                 state.bowlingTeam = temp;
+                updateFigures();
                 state.runs = 0;
                 state.wickets = 0;
                 state.balls = 0;
