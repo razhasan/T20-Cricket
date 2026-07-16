@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>🏏 T20 Cricket – India vs Pakistan</title>
     <style>
-        /* --- RESET & BASE --- */
+        /* --- Same styles as provided, kept unchanged for brevity --- */
         * {
             margin: 0;
             padding: 0;
@@ -35,7 +36,6 @@
             min-height: 700px;
             color: #fff;
         }
-        /* --- SCREENS --- */
         .screen {
             display: none;
             flex-direction: column;
@@ -44,7 +44,6 @@
         .screen.active {
             display: flex;
         }
-        /* --- BUTTONS --- */
         .btn {
             background: #f5c842;
             color: #1a2e3f;
@@ -82,7 +81,6 @@
             padding: 6px 12px;
             font-size: 0.8rem;
         }
-        /* --- MENU --- */
         #menu-screen h1 {
             text-align: center;
             font-size: 2rem;
@@ -122,7 +120,6 @@
             font-weight: bold;
             font-size: 1rem;
         }
-        /* --- OVER SELECTOR --- */
         .over-selector {
             display: flex;
             gap: 10px;
@@ -150,7 +147,6 @@
             font-size: 0.6rem;
             color: #aaa;
         }
-        /* --- PLAYER SELECTION --- */
         #selection-screen h2 {
             text-align: center;
             color: #f5c842;
@@ -207,7 +203,6 @@
             font-weight: bold;
             color: #f5c842;
         }
-        /* --- TOSS SCREEN --- */
         #toss-screen {
             text-align: center;
         }
@@ -254,7 +249,6 @@
             color: #f5c842;
             min-height: 30px;
         }
-        /* --- GAME SCREEN --- */
         #game-screen {
             gap: 6px;
         }
@@ -337,9 +331,15 @@
             animation: batSwing 0.4s ease;
         }
         @keyframes batSwing {
-            0% { transform: translate(-50%, -66%) rotate(0deg); }
-            40% { transform: translate(-50%, -66%) rotate(-38deg); }
-            100% { transform: translate(-50%, -66%) rotate(0deg); }
+            0% {
+                transform: translate(-50%, -66%) rotate(0deg);
+            }
+            40% {
+                transform: translate(-50%, -66%) rotate(-38deg);
+            }
+            100% {
+                transform: translate(-50%, -66%) rotate(0deg);
+            }
         }
         .figure-bowler {
             left: 48%;
@@ -349,9 +349,15 @@
             transform: translate(-50%, -8%);
             transition: transform 0.12s ease;
         }
-        .figure-bowler.run-up-1 { transform: translate(-56%, -8%) rotate(-4deg); }
-        .figure-bowler.run-up-2 { transform: translate(-42%, -6%) rotate(4deg); }
-        .figure-bowler.delivering { transform: translate(-50%, -4%) rotate(-8deg) scale(1.04); }
+        .figure-bowler.run-up-1 {
+            transform: translate(-56%, -8%) rotate(-4deg);
+        }
+        .figure-bowler.run-up-2 {
+            transform: translate(-42%, -6%) rotate(4deg);
+        }
+        .figure-bowler.delivering {
+            transform: translate(-50%, -4%) rotate(-8deg) scale(1.04);
+        }
         .figure-keeper {
             left: 35%;
             top: 78%;
@@ -367,7 +373,6 @@
             transform: translate(-50%, -8%);
             opacity: 0.95;
         }
-        /* Result / status banners overlaid on the ground */
         .result-banner {
             position: absolute;
             left: 50%;
@@ -390,17 +395,48 @@
             opacity: 1;
             transform: translate(-50%, -50%) scale(1);
         }
-        .result-banner.out { background: #c62828; box-shadow: 0 0 30px #c6282888; }
-        .result-banner.four { background: #2e7d32; box-shadow: 0 0 30px #2e7d3288; }
-        .result-banner.six { background: #1565c0; box-shadow: 0 0 30px #1565c088; }
-        .result-banner.info { background: #37474f; font-size: 1.1rem; box-shadow: 0 0 20px #37474f88; }
-        @media (max-width: 420px) {
-            #pitch-canvas { height: 58vh; min-height: 380px; }
-            .figure-batsman { width: 60px; height: 98px; }
-            .figure-bowler { width: 44px; height: 76px; }
-            .figure-keeper { width: 32px; height: 44px; }
-            .figure-umpire { width: 26px; height: 48px; }
-            .result-banner { font-size: 1.15rem; padding: 8px 18px; }
+        .result-banner.out {
+            background: #c62828;
+            box-shadow: 0 0 30px #c6282888;
+        }
+        .result-banner.four {
+            background: #2e7d32;
+            box-shadow: 0 0 30px #2e7d3288;
+        }
+        .result-banner.six {
+            background: #1565c0;
+            box-shadow: 0 0 30px #1565c088;
+        }
+        .result-banner.info {
+            background: #37474f;
+            font-size: 1.1rem;
+            box-shadow: 0 0 20px #37474f88;
+        }
+        @media (max-width:420px) {
+            #pitch-canvas {
+                height: 58vh;
+                min-height: 380px;
+            }
+            .figure-batsman {
+                width: 60px;
+                height: 98px;
+            }
+            .figure-bowler {
+                width: 44px;
+                height: 76px;
+            }
+            .figure-keeper {
+                width: 32px;
+                height: 44px;
+            }
+            .figure-umpire {
+                width: 26px;
+                height: 48px;
+            }
+            .result-banner {
+                font-size: 1.15rem;
+                padding: 8px 18px;
+            }
         }
         #powerplay-banner {
             position: absolute;
@@ -421,7 +457,10 @@
             box-shadow: 0 0 24px #f5c84288;
             transition: opacity 0.2s ease, transform 0.2s ease;
         }
-        #powerplay-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        #powerplay-banner.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
         .field-toggle-row {
             display: flex;
             gap: 6px;
@@ -438,9 +477,11 @@
             font-weight: bold;
             cursor: pointer;
         }
-        .field-toggle-btn.active { border-color: #f5c842; background: #34556b; }
+        .field-toggle-btn.active {
+            border-color: #f5c842;
+            background: #34556b;
+        }
 
-        /* Bowling Controls */
         .bowl-controls {
             display: flex;
             flex-wrap: wrap;
@@ -481,35 +522,6 @@
             transform: scale(0.9);
         }
 
-        /* Impact Map */
-        .impact-map {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 3px;
-            width: 100%;
-            max-width: 180px;
-            margin: 0 auto;
-        }
-        .impact-zone {
-            background: #2a4055;
-            aspect-ratio: 1;
-            border-radius: 6px;
-            border: 2px solid #4a6a85;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.5rem;
-            color: #aaa;
-            transition: 0.15s;
-        }
-        .impact-zone.selected {
-            border-color: #f5c842;
-            background: #3a5a75;
-            color: #fff;
-        }
-
-        /* Needle Meter */
         .needle-container {
             width: 100%;
             height: 40px;
@@ -550,7 +562,6 @@
             min-height: 18px;
         }
 
-        /* D-Pad (for batting direction) - we use drag, so not needed, but we keep a small indicator */
         .bat-controls {
             display: flex;
             gap: 8px;
@@ -582,7 +593,6 @@
             min-height: 20px;
         }
 
-        /* Batting timing meter (early / perfect / late) */
         .bat-timing-meter {
             margin: 2px 0;
         }
@@ -604,9 +614,15 @@
             color: #fff;
             letter-spacing: 0.5px;
         }
-        .timing-zone.early { background: #c62828; }
-        .timing-zone.perfect { background: #2e7d32; }
-        .timing-zone.late { background: #ef6c00; }
+        .timing-zone.early {
+            background: #c62828;
+        }
+        .timing-zone.perfect {
+            background: #2e7d32;
+        }
+        .timing-zone.late {
+            background: #ef6c00;
+        }
         .timing-needle {
             position: absolute;
             top: -4px;
@@ -619,9 +635,10 @@
             transition: left 0.15s ease;
             opacity: 0;
         }
-        .timing-needle.show { opacity: 1; }
+        .timing-needle.show {
+            opacity: 1;
+        }
 
-        /* D-Pad: alternate directional control alongside drag-to-hit */
         .dpad-row {
             display: flex;
             gap: 10px;
@@ -650,7 +667,6 @@
             margin-bottom: 2px;
         }
 
-        /* Action Buttons */
         .action-row {
             display: flex;
             gap: 8px;
@@ -669,7 +685,6 @@
             font-size: 0.9rem;
         }
 
-        /* --- RESULT SCREEN --- */
         #result-screen {
             text-align: center;
         }
@@ -700,7 +715,6 @@
             padding: 2px 0;
         }
 
-        /* Scrollbar */
         .player-grid::-webkit-scrollbar {
             width: 4px;
         }
@@ -712,8 +726,7 @@
             border-radius: 10px;
         }
 
-        /* Responsive */
-        @media (max-width: 420px) {
+        @media (max-width:420px) {
             .flag-card img {
                 width: 50px;
                 height: 35px;
@@ -743,7 +756,7 @@
 <body>
     <div id="app">
 
-        <!-- ========== MENU SCREEN ========== -->
+        <!-- MENU SCREEN -->
         <div id="menu-screen" class="screen active">
             <h1>🏏 T20 CRICKET</h1>
             <h3 style="text-align:center;color:#ccc;">India vs Pakistan</h3>
@@ -767,7 +780,7 @@
             <p style="text-align:center;font-size:0.7rem;color:#888;">Pick a flag, choose overs, then proceed.</p>
         </div>
 
-        <!-- ========== SELECTION SCREEN ========== -->
+        <!-- SELECTION SCREEN -->
         <div id="selection-screen" class="screen">
             <h2 id="sel-title">Choose 11 Players</h2>
             <div id="pick-count">Selected: 0 / 11</div>
@@ -777,7 +790,7 @@
             <button class="btn btn-secondary" id="btn-back-menu">← Back</button>
         </div>
 
-        <!-- ========== TOSS SCREEN ========== -->
+        <!-- TOSS SCREEN -->
         <div id="toss-screen" class="screen">
             <h2>🪙 Toss</h2>
             <div style="font-size:1.1rem;margin-bottom:4px;">Choose Heads or Tails</div>
@@ -797,7 +810,7 @@
             <button class="btn btn-secondary" id="toss-back-menu">← Back</button>
         </div>
 
-        <!-- ========== GAME SCREEN ========== -->
+        <!-- GAME SCREEN -->
         <div id="game-screen" class="screen">
             <div id="scoreboard">
                 <span class="team" id="bat-team">Batting: IND</span>
@@ -818,7 +831,7 @@
                 <div id="powerplay-banner"></div>
             </div>
 
-            <!-- Fielding placement controls (bowling side only) -->
+            <!-- Fielding controls -->
             <div id="field-controls-container" style="display:none;">
                 <div class="field-toggle-row">
                     <button class="field-toggle-btn active" id="field-auto-btn">🤖 Auto Field</button>
@@ -826,7 +839,7 @@
                 </div>
             </div>
 
-            <!-- Bowling Controls (hidden when user bats) -->
+            <!-- Bowling Controls (shown when user bowls) -->
             <div id="bowl-controls-container" style="display:none;">
                 <div class="bowl-controls" id="bowl-controls">
                     <div class="group">
@@ -851,11 +864,11 @@
                 </div>
             </div>
 
-            <!-- Batting Controls (visible when user bats) -->
+            <!-- Batting Controls (shown when user bats) -->
             <div id="bat-controls-container">
                 <div class="bat-controls">
                     <button class="loft-btn" id="loft-btn">🏏 LOFT</button>
-                    <span style="font-size:0.7rem;color:#aaa;margin-left:8px;">Drag on pitch, or use ⬅️⬆️➡️ below</span>
+                    <span style="font-size:0.7rem;color:#aaa;margin-left:8px;">Drag on pitch, or use ⬅️⬆️➡️</span>
                 </div>
                 <div class="bat-timing-meter">
                     <div class="timing-track">
@@ -886,7 +899,7 @@
             <div id="game-message">Select your team and start.</div>
         </div>
 
-        <!-- ========== RESULT SCREEN ========== -->
+        <!-- RESULT SCREEN -->
         <div id="result-screen" class="screen">
             <h2>🏆 Match Over</h2>
             <div class="winner" id="winner-text">India Wins!</div>
@@ -906,7 +919,7 @@
 
     <script>
         // ================================================================
-        //  COMPLETE CRICKET GAME – TOUCH EDITION
+        //  COMPLETE CRICKET GAME – FIXED BOWLING & BATTING
         // ================================================================
 
         // ---------- PLAYER DATA ----------
@@ -952,14 +965,13 @@
             ]
         };
 
-        // ---------- VISUAL ASSETS: TEAM COLORS + SVG AVATARS ----------
+        // ---------- VISUAL ASSETS ----------
         const TEAM_COLORS = {
             india: { primary: '#1a4fa0', secondary: '#0d2f66', trim: '#ff9800' },
             pakistan: { primary: '#0f5c2e', secondary: '#083d1e', trim: '#ffffff' }
         };
         const SKIN = '#c98a5e';
 
-        // Small headshot-style bust used on player selection cards
         function avatarBustSVG(role, teamKey) {
             const c = TEAM_COLORS[teamKey] || TEAM_COLORS.india;
             let headgear = '';
@@ -992,41 +1004,28 @@
             </svg>`;
         }
 
-        // Full-body pitch figures
-        // Batsman is drawn from behind (like a real broadcast camera angle),
-        // standing at the near crease with head/helmet turned up the pitch
-        // toward the bowler -- i.e. facing away from the viewer, toward the
-        // bowler's end, matching real cricket batting stance.
         function battingFigureSVG(teamKey) {
             const c = TEAM_COLORS[teamKey] || TEAM_COLORS.india;
             return `<svg viewBox="0 0 100 200" width="100%" height="100%">
-                <!-- pads -->
                 <rect x="37" y="118" width="11" height="55" rx="4" fill="#f5f5f0"/>
                 <rect x="52" y="118" width="11" height="55" rx="4" fill="#f5f5f0"/>
                 <rect x="33" y="169" width="18" height="8" rx="3" fill="#fff"/>
                 <rect x="49" y="169" width="18" height="8" rx="3" fill="#fff"/>
-                <!-- torso: back of jersey with number, facing up-pitch toward bowler -->
                 <path d="M31,78 Q50,64 69,78 L71,131 Q50,140 29,131 Z" fill="${c.primary}"/>
                 <path d="M31,80 Q50,74 69,80" fill="none" stroke="${c.secondary}" stroke-width="3"/>
                 <text x="50" y="112" font-size="20" font-weight="900" fill="${c.trim}" text-anchor="middle" font-family="Arial, sans-serif">18</text>
-                <!-- back (right) arm tucked, wrist wrapped in a batting glove -->
                 <path d="M69,84 Q83,93 79,110" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
                 <ellipse cx="79" cy="110" rx="6.5" ry="8" fill="#e8e8e8" stroke="#bbb" stroke-width="1"/>
                 <path d="M75,106 L75,114 M79,105 L79,115 M83,106 L83,114" stroke="#999" stroke-width="1"/>
-                <!-- front (left) arm holding bat, angled forward toward bowler's end -->
                 <path d="M31,84 Q15,95 17,116" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
-                <!-- gloved hand gripping the bat handle, fingers wrapped around -->
                 <ellipse cx="16" cy="115" rx="7" ry="9" fill="#e8e8e8" stroke="#bbb" stroke-width="1" transform="rotate(-16 16 115)"/>
                 <path d="M12,110 L12,120 M16,109 L16,121 M20,110 L20,120" stroke="#999" stroke-width="1" transform="rotate(-16 16 115)"/>
-                <!-- bat, blade grounded near the crease, handle up toward the grip -->
                 <rect x="8" y="58" width="10" height="68" rx="3" fill="#d9a441" stroke="#8a5a1e" stroke-width="1" transform="rotate(-16 13 60)"/>
                 <rect x="8" y="100" width="10" height="18" rx="3" fill="#5a3c1a" transform="rotate(-16 13 60)"/>
-                <!-- neck + head, helmet facing up-pitch (toward bowler) -->
                 <rect x="44" y="67" width="12" height="14" fill="${SKIN}"/>
                 <circle cx="50" cy="55" r="16" fill="${SKIN}"/>
                 <path d="M32,49 Q32,27 50,27 Q68,27 68,49 L68,56 L32,56 Z" fill="${c.primary}"/>
                 <path d="M32,54 Q50,62 68,54 L68,58 Q50,66 32,58 Z" fill="${c.secondary}"/>
-                <!-- helmet grille, oriented forward (up the pitch) so the face looks toward the bowler -->
                 <path d="M40,45 L40,57 M46,43 L46,57 M54,43 L54,57 M60,45 L60,57" stroke="#333" stroke-width="1.3"/>
             </svg>`;
         }
@@ -1062,8 +1061,6 @@
             </svg>`;
         }
 
-        // Umpire standing beside the stumps at the bowler's end, in
-        // traditional white coat and hat, officiating the delivery.
         function umpireFigureSVG() {
             return `<svg viewBox="0 0 60 110" width="100%" height="100%">
                 <ellipse cx="30" cy="14" rx="16" ry="6" fill="#f2f2f2"/>
@@ -1098,30 +1095,19 @@
             showBatTrail(direction || 'middle');
         }
 
-        // Quick run-up-to-release illusion for the bowler figure: 2 stride
-        // poses followed by a delivery lean, timed to roughly match release.
-        function runBowlerRunUp() {
-            const el = document.getElementById('figure-bowler');
-            if (!el) return;
-            el.classList.remove('run-up-1', 'run-up-2', 'delivering');
-            void el.offsetWidth;
-            el.classList.add('run-up-1');
-            setTimeout(() => { el.classList.remove('run-up-1'); el.classList.add('run-up-2'); }, 120);
-            setTimeout(() => { el.classList.remove('run-up-2'); el.classList.add('delivering'); }, 240);
-            setTimeout(() => { el.classList.remove('delivering'); }, 520);
-        }
-
-        // Draws a fading gold arc behind the bat to show the swing path
         function showBatTrail(direction) {
             const svg = document.getElementById('bat-trail-svg');
             if (!svg) return;
-            const w = 500, h = 560;
-            const startX = w * 0.48, startY = h * 0.60;
-            let endX = startX, endY = startY - h * 0.22;
+            const w = 500,
+                h = 560;
+            const startX = w * 0.48,
+                startY = h * 0.60;
+            let endX = startX,
+                endY = startY - h * 0.22;
             if (direction === 'left') endX -= w * 0.16;
             else if (direction === 'right') endX += w * 0.16;
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', `M${startX - 14},${startY + 18} Q${(startX + endX) / 2},${startY - 34} ${endX},${endY}`);
+            path.setAttribute('d', `M${startX-14},${startY+18} Q${(startX+endX)/2},${startY-34} ${endX},${endY}`);
             path.setAttribute('stroke', '#ffd54f');
             path.setAttribute('stroke-width', '7');
             path.setAttribute('fill', 'none');
@@ -1133,19 +1119,18 @@
             setTimeout(() => path.remove(), 550);
         }
 
-        // ---------- DRAG DIRECTION INDICATOR ----------
         function updateDragIndicator(x1, y1, x2, y2) {
             const svg = document.getElementById('drag-indicator-svg');
             if (!svg) return;
             svg.innerHTML = `<defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><polygon points="0 0, 8 4, 0 8" fill="#f5c842"/></marker></defs>
                 <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#f5c842" stroke-width="4" stroke-linecap="round" marker-end="url(#arrowhead)" opacity="0.9"/>`;
         }
+
         function clearDragIndicator() {
             const svg = document.getElementById('drag-indicator-svg');
             if (svg) svg.innerHTML = '';
         }
 
-        // ---------- RESULT / STATUS BANNERS ----------
         function showResultBanner(text, type) {
             const el = document.getElementById('result-banner');
             if (!el) return;
@@ -1155,7 +1140,6 @@
             window._bannerTimeout = setTimeout(() => { el.classList.remove('show'); }, 1300);
         }
 
-        // ---------- BATTING TIMING NEEDLE ----------
         function updateBatTimingNeedle(timing) {
             const el = document.getElementById('bat-timing-needle');
             if (!el) return;
@@ -1168,10 +1152,10 @@
             window._needleTimeout = setTimeout(() => el.classList.remove('show'), 1300);
         }
 
-        // ---------- STUMPS FALL ANIMATION (on wicket) ----------
         function triggerStumpsFall() {
             state.stumpsFallAnim = { progress: 0 };
             const start = performance.now();
+
             function step(t) {
                 const elapsed = t - start;
                 state.stumpsFallAnim.progress = Math.min(elapsed / 450, 1);
@@ -1179,7 +1163,8 @@
                 if (elapsed < 450) {
                     requestAnimationFrame(step);
                 } else {
-                    setTimeout(() => { state.stumpsFallAnim = null; drawPitch(); }, 900);
+                    setTimeout(() => { state.stumpsFallAnim = null;
+                        drawPitch(); }, 900);
                 }
             }
             requestAnimationFrame(step);
@@ -1199,12 +1184,10 @@
             currentInnings: 1,
             target: null,
             isMatchOver: false,
-            selectedOvers: 2, // default
-            // Toss
+            selectedOvers: 2,
             tossWinner: null,
             userTossCall: null,
             userChoice: null,
-            // Bowling
             bowlType: 'fast',
             variation: 'normal',
             impactZone: 'middle',
@@ -1213,38 +1196,34 @@
             isNeedleRunning: false,
             needleInterval: null,
             currentBowler: null,
-            bowlingOrder: [], // array of bowlers for each over
+            bowlingOrder: [],
             currentOverIndex: 0,
             ballsInOver: 0,
-            // Batting
             loftActive: false,
-            // AI
             isAIBowling: false,
             isAIBatting: false,
-            // Scores
             innings1: { runs: 0, wickets: 0, balls: 0, overs: 0 },
             innings2: { runs: 0, wickets: 0, balls: 0, overs: 0 },
             matchWinner: null,
             motm: null,
-            // Ball physics
             ball: null,
             ballReady: false,
-            // Fielding
             fielderPositions: null,
             fieldMode: 'auto',
             powerplayOvers: 0,
-            // Timing barometer (for batting)
             timingBarActive: false,
             timingBarValue: 0,
             timingBarDirection: 1,
             timingBarInterval: null,
             timingResult: null,
-            // Drag
             dragStartX: 0,
             dragStartY: 0,
             isDragging: false,
             dragEndX: 0,
             dragEndY: 0,
+            isBallInPlay: false,
+            stumpsFallAnim: null,
+            userTeam: null,
         };
 
         // ---------- DOM REFS ----------
@@ -1278,7 +1257,6 @@
 
         function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
 
-        // ---------- SCREEN MANAGEMENT ----------
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             $(id).classList.add('active');
@@ -1354,12 +1332,9 @@
 
         $('btn-back-menu').addEventListener('click', () => showScreen('menu-screen'));
 
-        // ---------- AUTO PICK XI ----------
         $('btn-auto-xi').addEventListener('click', function() {
-            // Reset current picks
             state.allPlayers.forEach(p => p.selected = false);
             state.playingXI = [];
-            // Balance roles: prioritize enough bowlers/all-rounders and a keeper first
             const byRole = role => state.allPlayers.filter(p => p.role === role);
             const wk = shuffleArray(byRole('WK'));
             const bowl = shuffleArray(byRole('BOWL'));
@@ -1370,7 +1345,6 @@
             pick.push(...bowl.slice(0, 4));
             pick.push(...ar.slice(0, 3));
             pick.push(...bat.slice(0, 5));
-            // Fill any remaining slots from whoever's left, up to 11
             const remaining = state.allPlayers.filter(p => !pick.includes(p));
             shuffleArray(remaining);
             while (pick.length < 11 && remaining.length) pick.push(remaining.shift());
@@ -1382,7 +1356,6 @@
             gameMsg.textContent = '🎲 Auto-selected XI!';
         });
 
-        // ---------- START GAME ----------
         $('btn-start-game').addEventListener('click', function() {
             if (state.playingXI.length !== 11) return;
             state.playingXI = shuffleArray(state.playingXI);
@@ -1470,7 +1443,6 @@
             state.userTeam = userTeam;
             updateFigures();
 
-            // Initialize match
             state.currentInnings = 1;
             state.runs = 0;
             state.wickets = 0;
@@ -1484,83 +1456,73 @@
             state.ballsInOver = 0;
             state.bowlingOrder = [];
 
-            // Select bowlers based on overs
             selectBowlers();
-
-            // Start first over
             startNewOver();
-
             updateScoreboard();
             showScreen('game-screen');
             resetNeedle();
             startPowerplayForInnings();
             drawPitch();
 
-            // If AI is bowling, trigger first ball
             if (state.isAIBowling) {
+                document.getElementById('bowl-controls-container').style.display = 'none';
+                document.getElementById('bat-controls-container').style.display = 'block';
+                document.getElementById('field-controls-container').style.display = 'none';
+                statusBanner.textContent = '🟢 YOU ARE BATTING';
+                statusBanner.className = 'batting';
+                gameMsg.textContent = 'AI is bowling. Watch the ball and tap to bat!';
                 setTimeout(() => aiBowling(), 1200);
             } else {
-                // User bowling
                 document.getElementById('bowl-controls-container').style.display = 'block';
                 document.getElementById('bat-controls-container').style.display = 'none';
                 statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
                 statusBanner.className = 'bowling';
                 gameMsg.textContent = 'Set your delivery and press BOWL!';
+                resetNeedle();
             }
         });
 
         $('toss-back-menu').addEventListener('click', () => showScreen('menu-screen'));
 
-        // ---------- BOWLER SELECTION ALGORITHM ----------
+        // ---------- BOWLER SELECTION ----------
         function selectBowlers() {
             const overs = state.selectedOvers;
             const bowlers = state.playingXI.filter(p => p.role === 'BOWL' || p.role === 'AR');
             if (bowlers.length === 0) {
-                // fallback: use first 4 players
                 for (let i = 0; i < Math.min(4, state.playingXI.length); i++) {
                     bowlers.push({ ...state.playingXI[i], role: 'BOWL' });
                 }
             }
             const selected = [];
             if (overs === 1) {
-                // one bowler for 6 balls
                 const b = { ...random(bowlers), maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 };
                 selected.push(b);
             } else if (overs === 2) {
-                // two different bowlers, 1 over each
                 const shuffled = shuffleArray([...bowlers]);
                 for (let i = 0; i < 2 && i < shuffled.length; i++) {
                     selected.push({ ...shuffled[i], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 });
                 }
             } else if (overs === 5) {
-                // need 4 bowlers: one can bowl 2 overs, others 1 each
                 const shuffled = shuffleArray([...bowlers]);
-                // first bowler gets 2 overs (12 balls)
                 if (shuffled.length > 0) {
                     selected.push({ ...shuffled[0], maxBalls: 12, ballsBowled: 0, runsConceded: 0, wickets: 0 });
                 }
-                // next three get 1 over each (6 balls)
                 for (let i = 1; i < Math.min(4, shuffled.length); i++) {
                     selected.push({ ...shuffled[i], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 });
                 }
-                // if not enough bowlers, duplicate the first one with lower max
                 while (selected.length < 4) {
                     const extra = { ...selected[0], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 };
                     selected.push(extra);
                 }
             }
             state.bowlingOrder = selected;
-            // reset current bowler index
             state.currentOverIndex = 0;
-            // reset balls in over
             state.ballsInOver = 0;
         }
 
         function startNewOver() {
             if (state.currentOverIndex >= state.bowlingOrder.length) {
-                // if we've used all bowlers, recycle (for 5 overs case)
                 if (state.selectedOvers === 5) {
-                    // find a bowler who still has remaining balls
                     let found = false;
                     for (let i = 0; i < state.bowlingOrder.length; i++) {
                         if (state.bowlingOrder[i].ballsBowled < state.bowlingOrder[i].maxBalls) {
@@ -1570,12 +1532,10 @@
                         }
                     }
                     if (!found) {
-                        // all bowlers exhausted, but match should have ended
                         endInnings();
                         return;
                     }
                 } else {
-                    // should not happen for 1 or 2 overs
                     endInnings();
                     return;
                 }
@@ -1600,7 +1560,6 @@
                 const ballsLeft = (state.selectedOvers * 6) - state.balls;
                 gameMsg.textContent = `Target: ${state.target} | Need ${need} runs in ${ballsLeft} balls`;
             }
-            // Update status banner
             if (state.isAIBowling) {
                 statusBanner.textContent = '🟡 AI IS BOWLING';
                 statusBanner.className = 'ai-bowling';
@@ -1617,11 +1576,7 @@
         }
 
         // ---------- DRAW PITCH ----------
-        let animFrame = 0;
-
-        // Polished cricket ball: glossy gradient body, shine highlight and curved seam
         function drawBall(b) {
-            // Motion trail first, underneath the ball
             if (b.trail) {
                 for (let i = 0; i < b.trail.length; i++) {
                     const t = b.trail[i];
@@ -1645,12 +1600,10 @@
             ctx.shadowBlur = 9;
             ctx.fill();
             ctx.shadowBlur = 0;
-            // shine
             ctx.beginPath();
             ctx.arc(b.x - 2.3, b.y - 2.3, 1.8, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(255,255,255,0.95)';
             ctx.fill();
-            // curved red seam
             ctx.strokeStyle = '#e53935';
             ctx.lineWidth = 1.2;
             ctx.beginPath();
@@ -1662,20 +1615,18 @@
             ctx.restore();
         }
 
-        // Default fielding ring: 8 fielders on the boundary + 2 tucked
-        // in closer, catching-distance positions.
         const DEFAULT_FIELDER_ANGLES = [200, 235, 265, 300, 335, 15, 55, 95, 130, 165];
-        const INNER_CIRCLE_FRACTION = 0.56; // radius fraction that counts as "inside the circle" for powerplay
+        const INNER_CIRCLE_FRACTION = 0.56;
 
         function fielderBaseRadius(i) {
-            // First two fielders (slip/short cover style) sit closer in;
-            // the rest patrol the boundary.
             return (i < 2) ? 0.24 : 0.46;
         }
 
         function initFielderPositions() {
-            const W = canvas.width, H = canvas.height;
-            const cx = W * 0.5, cy = H * 0.5;
+            const W = canvas.width,
+                H = canvas.height;
+            const cx = W * 0.5,
+                cy = H * 0.5;
             state.fielderPositions = DEFAULT_FIELDER_ANGLES.map((a, i) => {
                 const rad = a * Math.PI / 180;
                 const rFrac = fielderBaseRadius(i);
@@ -1686,22 +1637,21 @@
             });
         }
 
-        // Pull any fielder outside the inner circle back in, keeping at
-        // most `maxOutside` fielders beyond the ring -- used to enforce
-        // power-play restrictions automatically.
         function enforcePowerplayField(maxOutside) {
             if (!state.fielderPositions) return;
-            const W = canvas.width, H = canvas.height;
-            const cx = W * 0.5, cy = H * 0.5;
+            const W = canvas.width,
+                H = canvas.height;
+            const cx = W * 0.5,
+                cy = H * 0.5;
             const innerR = W * INNER_CIRCLE_FRACTION * 0.62;
             let outsideCount = 0;
             state.fielderPositions.forEach(f => {
-                const dx = f.x - cx, dy = f.y - cy;
+                const dx = f.x - cx,
+                    dy = f.y - cy;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist > innerR) {
                     outsideCount++;
                     if (outsideCount > maxOutside) {
-                        // pull this one back inside the circle
                         const scale = (innerR * 0.85) / dist;
                         f.x = cx + dx * scale;
                         f.y = cy + dy * scale;
@@ -1710,22 +1660,22 @@
             });
         }
 
-        // Small illustrated fielders (head + shirt + legs) placed around
-        // the ground, instead of plain dots.
         function drawFielders() {
-            const W = canvas.width, H = canvas.height;
+            const W = canvas.width,
+                H = canvas.height;
             if (!state.fielderPositions) initFielderPositions();
             const c = TEAM_COLORS[state.bowlingTeam] || TEAM_COLORS.pakistan;
             state.fielderPositions.forEach(f => {
-                const fx = f.x, fy = f.y;
-                // legs
+                const fx = f.x,
+                    fy = f.y;
                 ctx.strokeStyle = '#2b2b2b';
                 ctx.lineWidth = 1.6;
                 ctx.beginPath();
-                ctx.moveTo(fx - 2, fy + 5); ctx.lineTo(fx - 3, fy + 10);
-                ctx.moveTo(fx + 2, fy + 5); ctx.lineTo(fx + 3, fy + 10);
+                ctx.moveTo(fx - 2, fy + 5);
+                ctx.lineTo(fx - 3, fy + 10);
+                ctx.moveTo(fx + 2, fy + 5);
+                ctx.lineTo(fx + 3, fy + 10);
                 ctx.stroke();
-                // torso (team-colored shirt)
                 ctx.beginPath();
                 ctx.moveTo(fx - 4, fy + 6);
                 ctx.lineTo(fx - 3, fy - 2);
@@ -1734,14 +1684,14 @@
                 ctx.closePath();
                 ctx.fillStyle = c.primary;
                 ctx.fill();
-                // arms
                 ctx.strokeStyle = SKIN;
                 ctx.lineWidth = 1.4;
                 ctx.beginPath();
-                ctx.moveTo(fx - 3, fy - 1); ctx.lineTo(fx - 6, fy + 3);
-                ctx.moveTo(fx + 3, fy - 1); ctx.lineTo(fx + 6, fy + 3);
+                ctx.moveTo(fx - 3, fy - 1);
+                ctx.lineTo(fx - 6, fy + 3);
+                ctx.moveTo(fx + 3, fy - 1);
+                ctx.lineTo(fx + 6, fy + 3);
                 ctx.stroke();
-                // head
                 ctx.beginPath();
                 ctx.arc(fx, fy - 5, 3, 0, Math.PI * 2);
                 ctx.fillStyle = SKIN;
@@ -1752,10 +1702,6 @@
             });
         }
 
-        // ---------- POWER PLAY ----------
-        // Powerplay length scales with match length, matching real ratios:
-        // a 1-over match has no powerplay at all; longer matches restrict
-        // fielders outside the circle for roughly the first ~30-40%.
         function computePowerplayOvers() {
             if (state.selectedOvers <= 1) return 0;
             if (state.selectedOvers === 2) return 1;
@@ -1782,7 +1728,6 @@
             updateFieldControlsVisibility();
         }
 
-        // Called right after an over completes and state.overs is bumped
         function checkPowerplayOverCrossing() {
             if (state.powerplayOvers > 0 && state.overs === state.powerplayOvers) {
                 showPowerplayBanner('✅ POWER PLAY OVER — field is open now');
@@ -1820,21 +1765,23 @@
                 'Drag fielders on the ground to place them.';
         });
 
-        // Fielder drag handling (manual placement mode)
         function nearestFielderIndex(x, y, maxDist) {
             if (!state.fielderPositions) return -1;
-            let best = -1, bestD = maxDist;
+            let best = -1,
+                bestD = maxDist;
             state.fielderPositions.forEach((f, i) => {
                 const d = Math.hypot(f.x - x, f.y - y);
-                if (d < bestD) { bestD = d; best = i; }
+                if (d < bestD) { bestD = d;
+                    best = i; }
             });
             return best;
         }
 
-        // Stumps at the batting end -- falls over when triggerStumpsFall() runs
         function drawStumps() {
-            const W = canvas.width, H = canvas.height;
-            const stumpX = W * 0.48, stumpY = H * 0.72;
+            const W = canvas.width,
+                H = canvas.height;
+            const stumpX = W * 0.48,
+                stumpY = H * 0.72;
             const fall = state.stumpsFallAnim ? state.stumpsFallAnim.progress : 0;
             ctx.save();
             if (fall > 0) {
@@ -1847,7 +1794,6 @@
                 ctx.fillRect(stumpX + i * 5, stumpY, 3, 22);
             }
             ctx.restore();
-            // Bails fly off separately
             ctx.save();
             if (fall > 0) {
                 ctx.translate(fall * 16 - 4, -fall * 22);
@@ -1862,7 +1808,6 @@
                 H = canvas.height;
             ctx.clearRect(0, 0, W, H);
 
-            // Sky gradient
             const grad = ctx.createLinearGradient(0, 0, 0, H);
             grad.addColorStop(0, '#87CEEB');
             grad.addColorStop(0.18, '#b5dffa');
@@ -1871,7 +1816,6 @@
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
 
-            // Big circular outfield (covers ~65% of the stage)
             ctx.save();
             ctx.beginPath();
             ctx.ellipse(W * 0.5, H * 0.5, W * 0.5, H * 0.46, 0, 0, Math.PI * 2);
@@ -1884,13 +1828,11 @@
 
             drawFielders();
 
-            // Pitch strip
             ctx.fillStyle = '#c8a86a';
             ctx.fillRect(W * 0.4, H * 0.06, W * 0.2, H * 0.86);
             ctx.fillStyle = '#d4b479';
             ctx.fillRect(W * 0.43, H * 0.08, W * 0.14, H * 0.82);
 
-            // Crease
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             ctx.setLineDash([4, 4]);
@@ -1902,24 +1844,18 @@
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Stumps (bowler's end, decorative) + batting end (animatable)
             ctx.fillStyle = '#e0e0e0';
-            const farStumpX = W * 0.48, farStumpY = H * 0.1;
+            const farStumpX = W * 0.48,
+                farStumpY = H * 0.1;
             for (let i = 0; i < 3; i++) {
                 ctx.fillRect(farStumpX + i * 4, farStumpY - 14, 2, 14);
             }
             drawStumps();
 
-            // Batsman, bowler and wicketkeeper are rendered as real
-            // illustrated figures (see .pitch-figure elements / updateFigures())
-            // layered on top of this canvas, instead of drawn here.
-
-            // Ball if in play
             if (state.ball) {
                 drawBall(state.ball);
             }
 
-            // Over info
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 13px sans-serif';
             ctx.fillText(`Over ${Math.floor(state.balls/6)+1}`, 10, 20);
@@ -1930,26 +1866,27 @@
         }
 
         // ---------- NEEDLE METER ----------
-        let needleInterval = null;
         let needleValue = 0;
         let needleDirection = 1;
 
         function resetNeedle() {
-            if (needleInterval) { clearInterval(needleInterval);
-                needleInterval = null; }
+            if (state.needleInterval) { clearInterval(state.needleInterval);
+                state.needleInterval = null; }
             needleValue = 0;
             needleDirection = 1;
             document.getElementById('needle-marker').style.left = '0%';
             document.getElementById('needle-speed-text').textContent = '0%';
-            document.getElementById('needle-no-ball-text').textContent = '⚡ Tap BOWL to start needle';
+            document.getElementById('needle-no-ball-text').textContent = '⚡ Tap BOWL to start speed bar';
             state.isNeedleRunning = false;
+            document.getElementById('needle-no-ball-text').style.color = '#f44336';
         }
 
         function startNeedle() {
             if (state.isNeedleRunning || state.isMatchOver || state.isAIBowling) return;
             state.isNeedleRunning = true;
             document.getElementById('needle-no-ball-text').textContent = '🔄 Tap BOWL again to stop';
-            needleInterval = setInterval(() => {
+            document.getElementById('needle-no-ball-text').style.color = '#4caf50';
+            state.needleInterval = setInterval(() => {
                 needleValue += needleDirection * 1.8;
                 if (needleValue >= 100) { needleValue = 100;
                     needleDirection = -1; }
@@ -1967,42 +1904,38 @@
             }, 30);
         }
 
-        // Auto-pick a realistic delivery variation + line/length so the
-        // player only has to choose Fast/Spin + speed -- everything else
-        // (swing/cutter/spin type, and where it lands) is randomized here.
+        function stopNeedle() {
+            if (!state.isNeedleRunning) return;
+            clearInterval(state.needleInterval);
+            state.needleInterval = null;
+            state.isNeedleRunning = false;
+            const speed = needleValue;
+            const isNoBall = speed > 70;
+            document.getElementById('needle-no-ball-text').textContent = isNoBall ? '🚨 NO-BALL!' : '✅ Delivered!';
+            document.getElementById('needle-no-ball-text').style.color = isNoBall ? '#f44336' : '#4caf50';
+            // Auto-pick delivery variation and impact based on bowl type
+            autoPickDelivery();
+            // Deliver the ball
+            deliverBallUser(isNoBall, speed);
+        }
+
         function autoPickDelivery() {
             const fastVars = ['normal', 'swing-in', 'swing-out', 'reverse', 'leg-cutter', 'off-cutter'];
             const spinVars = ['normal', 'googly', 'doosra', 'carrom'];
             state.variation = random(state.bowlType === 'fast' ? fastVars : spinVars);
-            // Mostly land on a good line; occasionally stray wide (off/leg) --
-            // this is what drives the wide-ball call.
             const zones = ['middle', 'middle', 'good', 'good', 'full', 'short', 'outside-off', 'leg'];
             state.impactZone = random(zones);
             state.length = (state.impactZone === 'full' || state.impactZone === 'short') ? state.impactZone : 'good';
         }
 
-        function stopNeedle() {
-            if (!state.isNeedleRunning) return;
-            clearInterval(needleInterval);
-            needleInterval = null;
-            state.isNeedleRunning = false;
-            const speed = needleValue;
-            const isNoBall = speed > 68;
-            document.getElementById('needle-no-ball-text').textContent = isNoBall ? '🚨 NO-BALL!' : '✅ Delivered!';
-            document.getElementById('needle-no-ball-text').style.color = isNoBall ? '#f44336' : '#4caf50';
-            autoPickDelivery();
-            // Deliver ball
-            deliverBallUser(isNoBall, speed);
-        }
-
-        // ---------- AUTO BOWL (one-tap delivery for the user's over) ----------
+        // ---------- AUTO BOWL ----------
         function autoUserBowl() {
             if (state.isMatchOver || state.isAIBowling || state.isAIBatting) return;
             if (state.isBallInPlay || state.isNeedleRunning) return;
             state.bowlType = random(['fast', 'spin']);
             document.querySelectorAll('[data-bowl]').forEach(b => b.classList.toggle('active', b.dataset.bowl === state.bowlType));
             autoPickDelivery();
-            const speed = 30 + Math.random() * 35; // keep it safely under no-ball range
+            const speed = 30 + Math.random() * 35;
             document.getElementById('needle-marker').style.left = speed + '%';
             document.getElementById('needle-speed-text').textContent = Math.round(speed) + '%';
             document.getElementById('needle-no-ball-text').textContent = '✅ Delivered!';
@@ -2016,7 +1949,7 @@
             if (state.isMatchOver) return;
             runBowlerRunUp();
 
-            // Wide check based on impact zone
+            // Wide check
             const wideZones = ['outside-off', 'leg'];
             let isWide = false;
             if (wideZones.includes(state.impactZone) && !isNoBall) {
@@ -2029,14 +1962,18 @@
                 updateScoreboard();
                 drawPitch();
                 resetNeedle();
-                // Allow next ball
                 setTimeout(() => {
-                    if (!state.isMatchOver) startNeedle();
-                }, 500);
+                    if (!state.isMatchOver) {
+                        // Auto re-bowl: start needle after delay
+                        if (!state.isAIBowling && !state.isAIBatting) {
+                            startNeedle();
+                        }
+                    }
+                }, 600);
                 return;
             }
 
-            // Count ball
+            // Count ball if not a no-ball
             if (!isNoBall) {
                 state.balls += 1;
                 state.ballsInOver += 1;
@@ -2047,19 +1984,15 @@
                     state.overs += 1;
                     checkPowerplayOverCrossing();
                     showResultBanner(`Over ${state.overs} Complete`, 'info');
-                    // end over, move to next bowler
                     state.currentOverIndex++;
                     if (state.currentOverIndex < state.bowlingOrder.length) {
                         startNewOver();
                     } else {
-                        // all bowlers used, check if innings should end
                         if (state.balls >= state.selectedOvers * 6) {
                             endInnings();
                             return;
                         }
-                        // else recycle (for 5 overs)
                         if (state.selectedOvers === 5) {
-                            // find a bowler with remaining balls
                             let found = false;
                             for (let i = 0; i < state.bowlingOrder.length; i++) {
                                 if (state.bowlingOrder[i].ballsBowled < state.bowlingOrder[i].maxBalls) {
@@ -2078,7 +2011,7 @@
                 }
             }
 
-            // Create ball animation (AI will bat)
+            // Create ball animation
             const W = canvas.width,
                 H = canvas.height;
             const ball = {
@@ -2100,7 +2033,7 @@
                 isAI: false,
             };
 
-            // Apply swing
+            // Apply swing/spin
             if (state.variation === 'swing-in') ball.swing = -0.3;
             else if (state.variation === 'swing-out') ball.swing = 0.3;
             else if (state.variation === 'reverse') ball.swing = (Math.random() < 0.5) ? 0.4 : -0.4;
@@ -2121,7 +2054,6 @@
             state.ballReady = false;
             state.isBallInPlay = true;
 
-            // Animate ball
             let lastTime = performance.now();
 
             function animateBall(time) {
@@ -2143,20 +2075,20 @@
                 }
                 b.x = x;
                 b.y = y;
-                // Trail
                 b.trail.push({ x, y });
                 if (b.trail.length > 10) b.trail.shift();
 
                 if (t >= 1 || y > H * 0.85) {
                     state.isBallInPlay = false;
                     state.ballReady = true;
-                    // AI bats automatically
+                    // Determine who bats
                     if (state.isAIBatting) {
                         aiBatting();
                     } else {
-                        // Should not happen (user batting with AI bowling)
-                        // but for safety
-                        gameMsg.textContent = '⚡ Tap to bat!';
+                        // User bats (AI bowling)
+                        gameMsg.textContent = '⚡ Tap the pitch to play your shot!';
+                        document.getElementById('bat-controls-container').style.display = 'block';
+                        document.getElementById('bowl-controls-container').style.display = 'none';
                     }
                     drawPitch();
                     return;
@@ -2174,7 +2106,6 @@
             if (state.isMatchOver || !state.isAIBowling) return;
             runBowlerRunUp();
 
-            // AI selects random parameters
             const types = ['fast', 'spin'];
             state.bowlType = random(types);
             const fastVars = ['normal', 'swing-in', 'swing-out', 'reverse', 'leg-cutter', 'off-cutter'];
@@ -2182,7 +2113,7 @@
             state.variation = random(state.bowlType === 'fast' ? fastVars : spinVars);
             const zones = ['outside-off', 'middle', 'leg', 'full', 'good', 'short'];
             state.impactZone = random(zones);
-            const speed = 30 + Math.random() * 50; // 30-80%
+            const speed = 30 + Math.random() * 50;
             const isNoBall = speed > 70;
 
             if (isNoBall) {
@@ -2190,12 +2121,10 @@
                 gameMsg.textContent = 'AI bowls a NO-BALL! Extra run + Free Hit.';
                 updateScoreboard();
                 drawPitch();
-                // Re-bowl after delay
                 setTimeout(() => aiBowling(), 800);
                 return;
             }
 
-            // Wide check
             const wideZones = ['outside-off', 'leg'];
             let isWide = false;
             if (wideZones.includes(state.impactZone) && !isNoBall) {
@@ -2210,7 +2139,6 @@
                 return;
             }
 
-            // Count ball
             if (!isNoBall) {
                 state.balls += 1;
                 state.ballsInOver += 1;
@@ -2248,7 +2176,6 @@
                 }
             }
 
-            // Animate ball
             const W = canvas.width,
                 H = canvas.height;
             const ball = {
@@ -2319,6 +2246,8 @@
                     state.ballReady = true;
                     // User bats (since AI is bowling)
                     gameMsg.textContent = '⚡ Tap the pitch to play your shot!';
+                    document.getElementById('bat-controls-container').style.display = 'block';
+                    document.getElementById('bowl-controls-container').style.display = 'none';
                     drawPitch();
                     return;
                 }
@@ -2329,7 +2258,7 @@
             updateScoreboard();
         }
 
-        // ---------- USER BATTING (drag on canvas) ----------
+        // ---------- USER BATTING (drag) ----------
         let dragStartX = 0,
             dragStartY = 0;
         let isDragging = false;
@@ -2364,8 +2293,8 @@
             endDrag();
         }
 
-        // ---------- MANUAL FIELDER PLACEMENT ----------
         let draggingFielderIndex = -1;
+
         function isFieldPlacementActive() {
             return state.fieldMode === 'manual' && state.isAIBatting === true && !state.ballReady && !state.isBallInPlay;
         }
@@ -2401,8 +2330,6 @@
             if (!isDragging || !state.ballReady) return;
             window._lastDragX = x;
             window._lastDragY = y;
-            // Live arrow from the batsman toward the drag point so the
-            // player can see which way the shot is currently aimed
             updateDragIndicator(canvas.width * 0.48, canvas.height * 0.6, x, y);
         }
 
@@ -2422,8 +2349,6 @@
             processUserShot(endX, endY);
         }
 
-        // Keep the live direction arrow updated even when the touch/mouse
-        // moves outside the canvas bounds mid-drag
         document.addEventListener('mousemove', function(e) {
             if (isDragging) {
                 const rect = canvas.getBoundingClientRect();
@@ -2442,7 +2367,7 @@
             }
         }, { passive: false });
 
-        // ---------- D-PAD (alternate shot-direction control) ----------
+        // ---------- D-PAD ----------
         function tapShot(direction) {
             if (!state.ballReady || state.isMatchOver || state.isAIBatting) return;
             const batX = canvas.width * 0.48;
@@ -2462,7 +2387,6 @@
             state.ballReady = false;
             const ball = state.ball;
             if (!ball) return;
-            // Determine direction based on drag relative to batsman
             const batX = canvas.width * 0.48;
             const diffX = endX - batX;
             let direction = 'middle';
@@ -2471,7 +2395,6 @@
 
             triggerBatSwing(direction);
 
-            // Determine timing based on ball progress
             const t = ball.progress;
             let timing = 'perfect';
             if (t < 0.6) timing = 'early';
@@ -2479,10 +2402,8 @@
             else timing = 'perfect';
             updateBatTimingNeedle(timing);
 
-            // Loft toggle
             const isLoft = state.loftActive;
 
-            // Calculate outcome
             let runs = 0;
             let isOut = false;
             let outType = '';
@@ -2507,7 +2428,6 @@
             }
 
             if (!isOut) {
-                // Runs calculation
                 if (isLoft) {
                     if (timing === 'perfect') runs = (Math.random() < 0.6) ? 6 : 4;
                     else if (timing === 'early' || timing === 'late') runs = (Math.random() < 0.3) ? 4 : (Math.random() < 0.6 ?
@@ -2535,14 +2455,12 @@
                 else if (runs === 4) showResultBanner('FOUR! 4', 'four');
             }
 
-            // Update timing indicator
             document.getElementById('timing-indicator').textContent = `⏱️ Timing: ${timing.toUpperCase()}`;
 
             state.ball = null;
             state.isBallInPlay = false;
             state.ballReady = false;
 
-            // Check innings over
             if (state.wickets >= 10 || state.balls >= state.selectedOvers * 6) {
                 showResultBanner('Innings Complete', 'info');
                 endInnings();
@@ -2558,17 +2476,16 @@
             drawPitch();
             resetNeedle();
 
-            // If AI is bowling, continue
             if (state.isAIBowling && !state.isMatchOver) {
+                document.getElementById('bat-controls-container').style.display = 'none';
+                document.getElementById('bowl-controls-container').style.display = 'none';
                 setTimeout(() => aiBowling(), 1000);
             } else if (state.isAIBatting && !state.isMatchOver) {
-                // User bowling
                 document.getElementById('bowl-controls-container').style.display = 'block';
                 document.getElementById('bat-controls-container').style.display = 'none';
                 statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
                 statusBanner.className = 'bowling';
                 gameMsg.textContent = 'Set your delivery and press BOWL!';
-                // Enable needle
                 resetNeedle();
             }
         }
@@ -2580,7 +2497,6 @@
             const ball = state.ball;
             if (!ball) return;
 
-            // AI skill level 0.4-0.7
             const skill = 0.4 + Math.random() * 0.3;
             const rand = Math.random();
             let timing = 'perfect';
@@ -2588,14 +2504,12 @@
             else if (rand < (1 - skill) * 0.5) timing = 'late';
             else timing = 'perfect';
 
-            // Direction based on ball line
             let direction = 'middle';
             if (ball.impact === 'outside-off') direction = 'left';
             else if (ball.impact === 'leg') direction = 'right';
 
             triggerBatSwing(direction);
 
-            // Loft decision (situational)
             const needsRuns = (state.currentInnings === 2 && state.runs < state.target * 0.8);
             const isLoft = (needsRuns && Math.random() < 0.25) || (Math.random() < 0.08);
 
@@ -2653,7 +2567,6 @@
             state.isBallInPlay = false;
             state.ballReady = false;
 
-            // Check innings over
             if (state.wickets >= 10 || state.balls >= state.selectedOvers * 6) {
                 showResultBanner('Innings Complete', 'info');
                 endInnings();
@@ -2669,7 +2582,6 @@
             drawPitch();
             resetNeedle();
 
-            // If AI is batting, user bowls next
             if (state.isAIBatting && !state.isMatchOver) {
                 document.getElementById('bowl-controls-container').style.display = 'block';
                 document.getElementById('bat-controls-container').style.display = 'none';
@@ -2678,7 +2590,8 @@
                 gameMsg.textContent = 'Set your delivery and press BOWL!';
                 resetNeedle();
             } else if (state.isAIBowling && !state.isMatchOver) {
-                // AI continues bowling
+                document.getElementById('bat-controls-container').style.display = 'none';
+                document.getElementById('bowl-controls-container').style.display = 'none';
                 setTimeout(() => aiBowling(), 1000);
             }
         }
@@ -2689,7 +2602,6 @@
                 state.innings1 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.target = state.runs + 1;
                 state.currentInnings = 2;
-                // Swap teams
                 const temp = state.battingTeam;
                 state.battingTeam = state.bowlingTeam;
                 state.bowlingTeam = temp;
@@ -2700,7 +2612,6 @@
                 state.overs = 0;
                 state.isAIBowling = !state.isAIBowling;
                 state.isAIBatting = !state.isAIBatting;
-                // Reset bowler order
                 selectBowlers();
                 state.currentOverIndex = 0;
                 state.ballsInOver = 0;
@@ -2732,7 +2643,6 @@
                     resetNeedle();
                 }
             } else {
-                // Innings 2 over
                 state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 const winner = state.runs >= state.target ? state.battingTeam : state.bowlingTeam;
                 endMatch(winner);
@@ -2744,14 +2654,12 @@
             state.matchWinner = winner;
             const userTeam = state.selectedTeam;
             const isUserWin = winner === userTeam;
-            // Determine MOTM (simple: from winning team, highest runs or wickets)
             const motm = state.playingXI[0] || { name: 'Player' };
             state.motm = motm.name;
             document.getElementById('winner-text').textContent = isUserWin ? `🎉 ${userTeam.toUpperCase()} WINS! 🎉` :
                 `😞 ${userTeam.toUpperCase()} Loses!`;
             document.getElementById('motm-name').textContent = motm.name;
             document.getElementById('motm-stats').textContent = `⭐ Man of the Match`;
-            // Show score summary
             const s1 = state.innings1,
                 s2 = state.innings2;
             const overs1 = Math.floor(s1.balls / 6) + '.' + (s1.balls % 6);
@@ -2765,14 +2673,12 @@
         }
 
         // ---------- EVENT BINDINGS ----------
-        // Loft button
         document.getElementById('loft-btn').addEventListener('click', function() {
             state.loftActive = !state.loftActive;
             this.classList.toggle('active');
             gameMsg.textContent = state.loftActive ? '🏏 LOFT ACTIVE (High risk)' : 'Normal shot';
         });
 
-        // Bowl button
         document.getElementById('btn-bowl').addEventListener('click', function() {
             if (state.isMatchOver) return;
             if (state.isAIBowling || state.isAIBatting) {
@@ -2790,7 +2696,6 @@
             }
         });
 
-        // Run button (manual single)
         document.getElementById('btn-run').addEventListener('click', function() {
             if (state.isMatchOver || state.isBallInPlay) return;
             if (state.isAIBowling || state.isAIBatting) {
@@ -2819,8 +2724,6 @@
             location.reload();
         });
 
-        // Bowling controls: just Fast/Spin -- the exact variation and
-        // line/length are auto-picked at release time (see autoPickDelivery)
         document.querySelectorAll('[data-bowl]').forEach(btn => {
             btn.addEventListener('click', function() {
                 if (state.isAIBowling || state.isAIBatting) return;
@@ -2830,13 +2733,26 @@
             });
         });
 
+        // ---------- RUN BOWLER RUN-UP ANIMATION ----------
+        function runBowlerRunUp() {
+            const el = document.getElementById('figure-bowler');
+            if (!el) return;
+            el.classList.remove('run-up-1', 'run-up-2', 'delivering');
+            void el.offsetWidth;
+            el.classList.add('run-up-1');
+            setTimeout(() => { el.classList.remove('run-up-1');
+                el.classList.add('run-up-2'); }, 120);
+            setTimeout(() => { el.classList.remove('run-up-2');
+                el.classList.add('delivering'); }, 240);
+            setTimeout(() => { el.classList.remove('delivering'); }, 520);
+        }
+
         // ---------- ANIMATION LOOP ----------
         function animate() {
             if (!document.querySelector('#game-screen.active')) {
                 requestAnimationFrame(animate);
                 return;
             }
-            animFrame++;
             drawPitch();
             requestAnimationFrame(animate);
         }
@@ -2844,10 +2760,10 @@
         // ---------- INIT ----------
         state.variation = 'normal';
         state.bowlType = 'fast';
-
         animate();
         gameMsg.textContent = 'Select your team and start.';
         resetNeedle();
     </script>
 </body>
 </html>
+```
