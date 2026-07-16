@@ -831,7 +831,7 @@
                 </div>
             </div>
 
-            <!-- Bowling Controls (shown when user bowls) -->
+            <!-- Bowling Controls -->
             <div id="bowl-controls-container" style="display:none;">
                 <div class="bowl-controls">
                     <div class="group">
@@ -840,7 +840,6 @@
                         <button class="bowl-btn" data-bowl="spin">🌀 Spin</button>
                     </div>
                 </div>
-                <!-- Impact point selection -->
                 <div style="text-align:center;font-size:0.8rem;color:#aaa;">Select impact zone</div>
                 <div class="impact-grid" id="impact-grid">
                     <div class="impact-zone" data-line="leg" data-length="full">Full<br>Leg</div>
@@ -862,7 +861,7 @@
                 </div>
             </div>
 
-            <!-- Batting Controls (shown when user bats) -->
+            <!-- Batting Controls -->
             <div id="bat-controls-container" style="display:none;">
                 <div class="bat-controls">
                     <button class="loft-btn" id="loft-btn">🏏 LOFT</button>
@@ -882,10 +881,6 @@
             <!-- Action Buttons -->
             <div class="action-row">
                 <button class="btn" id="btn-bowl" style="flex:2;">⚡ BOWL</button>
-                <button class="btn" id="btn-run" style="flex:1;background:#4caf50;">🏃 RUN</button>
-                <button class="btn" id="btn-cancel-run" style="flex:1;background:#f44336;">✋ CANCEL</button>
-            </div>
-            <div class="action-row">
                 <button class="btn btn-secondary" id="btn-reset-game" style="flex:1;">🔄 Reset</button>
             </div>
             <div id="game-message">Select your team and start.</div>
@@ -911,7 +906,7 @@
 
     <script>
         // ================================================================
-        //  COMPLETE CRICKET GAME – SLOW BALL, IMPACT SELECT, FIELDING
+        //  COMPLETE CRICKET GAME – FIXED WIN/LOSS LOGIC + REALISTIC DISMISSALS
         // ================================================================
 
         // ---------- PLAYER DATA ----------
@@ -1203,7 +1198,10 @@
             isBallInPlay: false,
             stumpsFallAnim: null,
             userTeam: null,
-            batsmanXOffset: 0, // -20..20
+            batsmanXOffset: 0,
+            // For result tracking
+            innings1Team: null,
+            innings2Team: null,
         };
 
         // ---------- DOM REFS ----------
@@ -1421,6 +1419,8 @@
                 state.isAIBatting = true;
             }
             state.userTeam = userTeam;
+            state.innings1Team = state.battingTeam;
+            state.innings2Team = state.bowlingTeam;
             updateFigures();
 
             state.currentInnings = 1;
@@ -1444,4 +1444,1310 @@
             drawPitch();
 
             if (state.isAIBowling) {
-                document.getElementById('bowl-controls-container').style.display
+                document.getElementById('bowl-controls-container').style.display = 'none';
+                document.getElementById('bat-controls-container').style.display = 'block';
+                document.getElementById('field-controls-container').style.display = 'none';
+                statusBanner.textContent = '🟢 YOU ARE BATTING';
+                statusBanner.className = 'batting';
+                gameMsg.textContent = 'AI is bowling. Watch the ball and tap to bat!';
+                setTimeout(() => aiBowling(), 1200);
+            } else {
+                document.getElementById('bowl-controls-container').style.display = 'block';
+                document.getElementById('bat-controls-container').style.display = 'none';
+                statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
+                statusBanner.className = 'bowling';
+                gameMsg.textContent = 'Press BOWL to deliver!';
+            }
+        });
+
+        $('toss-back-menu').addEventListener('click', () => showScreen('menu-screen'));
+
+        // ---------- BOWLER SELECTION ----------
+        function selectBowlers() {
+            const overs = state.selectedOvers;
+            const bowlers = state.playingXI.filter(p => p.role === 'BOWL' || p.role === 'AR');
+            if (bowlers.length === 0) {
+                for (let i = 0; i < Math.min(4, state.playingXI.length); i++) {
+                    bowlers.push({ ...state.playingXI[i], role: 'BOWL' });
+                }
+            }
+            const selected = [];
+            if (overs === 1) {
+                const b = { ...random(bowlers), maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 };
+                selected.push(b);
+            } else if (overs === 2) {
+                const shuffled = shuffleArray([...bowlers]);
+                for (let i = 0; i < 2 && i < shuffled.length; i++) {
+                    selected.push({ ...shuffled[i], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 });
+                }
+            } else if (overs === 5) {
+                const shuffled = shuffleArray([...bowlers]);
+                if (shuffled.length > 0) {
+                    selected.push({ ...shuffled[0], maxBalls: 12, ballsBowled: 0, runsConceded: 0, wickets: 0 });
+                }
+                for (let i = 1; i < Math.min(4, shuffled.length); i++) {
+                    selected.push({ ...shuffled[i], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 });
+                }
+                while (selected.length < 4) {
+                    const extra = { ...selected[0], maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0 };
+                    selected.push(extra);
+                }
+            }
+            state.bowlingOrder = selected;
+            state.currentOverIndex = 0;
+            state.ballsInOver = 0;
+        }
+
+        function startNewOver() {
+            if (state.currentOverIndex >= state.bowlingOrder.length) {
+                if (state.selectedOvers === 5) {
+                    let found = false;
+                    for (let i = 0; i < state.bowlingOrder.length; i++) {
+                        if (state.bowlingOrder[i].ballsBowled < state.bowlingOrder[i].maxBalls) {
+                            state.currentOverIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        endInnings();
+                        return;
+                    }
+                } else {
+                    endInnings();
+                    return;
+                }
+            }
+            const bowler = state.bowlingOrder[state.currentOverIndex];
+            state.currentBowler = bowler;
+            state.ballsInOver = 0;
+            gameMsg.textContent = `Over ${Math.floor(state.balls/6)+1} - ${bowler.name} bowling`;
+            updateScoreboard();
+            drawPitch();
+        }
+
+        // ---------- SCOREBOARD ----------
+        function updateScoreboard() {
+            const teamName = state.battingTeam.toUpperCase();
+            const oversStr = Math.floor(state.balls / 6) + '.' + (state.balls % 6);
+            scoreDisplay.textContent = `${state.runs}/${state.wickets} (${oversStr})`;
+            batTeamEl.textContent = `Batting: ${teamName}`;
+            bowlTeamEl.textContent = `Bowling: ${state.bowlingTeam.toUpperCase()}`;
+            if (state.target && state.currentInnings === 2) {
+                const need = state.target - state.runs;
+                const ballsLeft = (state.selectedOvers * 6) - state.balls;
+                gameMsg.textContent = `Target: ${state.target} | Need ${need} runs in ${ballsLeft} balls`;
+            }
+            if (state.isAIBowling) {
+                statusBanner.textContent = '🟡 AI IS BOWLING';
+                statusBanner.className = 'ai-bowling';
+            } else if (state.isAIBatting) {
+                statusBanner.textContent = '🔵 AI IS BATTING';
+                statusBanner.className = 'ai-batting';
+            } else if (state.battingTeam === state.selectedTeam) {
+                statusBanner.textContent = '🟢 YOU ARE BATTING';
+                statusBanner.className = 'batting';
+            } else {
+                statusBanner.textContent = '🔴 YOU ARE BOWLING';
+                statusBanner.className = 'bowling';
+            }
+        }
+
+        // ---------- FIELDING ----------
+        const DEFAULT_FIELDER_ANGLES = [200, 235, 265, 300, 335, 15, 55, 95, 130, 165];
+        const INNER_CIRCLE_FRACTION = 0.56;
+
+        function fielderBaseRadius(i) {
+            return (i < 2) ? 0.24 : 0.46;
+        }
+
+        function initFielderPositions() {
+            const W = canvas.width,
+                H = canvas.height;
+            const cx = W * 0.5,
+                cy = H * 0.5;
+            state.fielderPositions = DEFAULT_FIELDER_ANGLES.map((a, i) => {
+                const rad = a * Math.PI / 180;
+                const rFrac = fielderBaseRadius(i);
+                return {
+                    x: cx + Math.cos(rad) * W * rFrac,
+                    y: cy + Math.sin(rad) * H * rFrac * 0.96
+                };
+            });
+        }
+
+        function enforcePowerplayField(maxOutside) {
+            if (!state.fielderPositions) return;
+            const W = canvas.width,
+                H = canvas.height;
+            const cx = W * 0.5,
+                cy = H * 0.5;
+            const innerR = W * INNER_CIRCLE_FRACTION * 0.62;
+            let outsideCount = 0;
+            state.fielderPositions.forEach(f => {
+                const dx = f.x - cx,
+                    dy = f.y - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > innerR) {
+                    outsideCount++;
+                    if (outsideCount > maxOutside) {
+                        const scale = (innerR * 0.85) / dist;
+                        f.x = cx + dx * scale;
+                        f.y = cy + dy * scale;
+                    }
+                }
+            });
+        }
+
+        function drawFielders() {
+            const W = canvas.width,
+                H = canvas.height;
+            if (!state.fielderPositions) initFielderPositions();
+            const c = TEAM_COLORS[state.bowlingTeam] || TEAM_COLORS.pakistan;
+            state.fielderPositions.forEach(f => {
+                const fx = f.x,
+                    fy = f.y;
+                ctx.strokeStyle = '#2b2b2b';
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                ctx.moveTo(fx - 2, fy + 5);
+                ctx.lineTo(fx - 3, fy + 10);
+                ctx.moveTo(fx + 2, fy + 5);
+                ctx.lineTo(fx + 3, fy + 10);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(fx - 4, fy + 6);
+                ctx.lineTo(fx - 3, fy - 2);
+                ctx.lineTo(fx + 3, fy - 2);
+                ctx.lineTo(fx + 4, fy + 6);
+                ctx.closePath();
+                ctx.fillStyle = c.primary;
+                ctx.fill();
+                ctx.strokeStyle = SKIN;
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.moveTo(fx - 3, fy - 1);
+                ctx.lineTo(fx - 6, fy + 3);
+                ctx.moveTo(fx + 3, fy - 1);
+                ctx.lineTo(fx + 6, fy + 3);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(fx, fy - 5, 3, 0, Math.PI * 2);
+                ctx.fillStyle = SKIN;
+                ctx.fill();
+                ctx.lineWidth = 0.8;
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+            });
+        }
+
+        // ---------- DRAW PITCH ----------
+        function drawPitch() {
+            const W = canvas.width,
+                H = canvas.height;
+            ctx.clearRect(0, 0, W, H);
+
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#87CEEB');
+            grad.addColorStop(0.18, '#b5dffa');
+            grad.addColorStop(0.3, '#8bc34a');
+            grad.addColorStop(1, '#4caf50');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.ellipse(W * 0.5, H * 0.5, W * 0.5, H * 0.46, 0, 0, Math.PI * 2);
+            ctx.fillStyle = '#3fa34d';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+            ctx.stroke();
+            ctx.restore();
+
+            drawFielders();
+
+            ctx.fillStyle = '#c8a86a';
+            ctx.fillRect(W * 0.4, H * 0.06, W * 0.2, H * 0.86);
+            ctx.fillStyle = '#d4b479';
+            ctx.fillRect(W * 0.43, H * 0.08, W * 0.14, H * 0.82);
+
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(W * 0.45, H * 0.1);
+            ctx.lineTo(W * 0.45, H * 0.9);
+            ctx.moveTo(W * 0.55, H * 0.1);
+            ctx.lineTo(W * 0.55, H * 0.9);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Bowler's end stumps
+            ctx.fillStyle = '#e0e0e0';
+            const farStumpX = W * 0.48,
+                farStumpY = H * 0.1;
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(farStumpX + i * 4, farStumpY - 14, 2, 14);
+            }
+            // Batting end stumps
+            const stumpX = W * 0.48,
+                stumpY = H * 0.76;
+            const fall = state.stumpsFallAnim ? state.stumpsFallAnim.progress : 0;
+            ctx.save();
+            if (fall > 0) {
+                ctx.translate(stumpX + 8, stumpY + 22);
+                ctx.rotate(fall * 1.3);
+                ctx.translate(-(stumpX + 8), -(stumpY + 22));
+            }
+            ctx.fillStyle = '#d32f2f';
+            for (let i = 0; i < 3; i++) {
+                ctx.fillRect(stumpX + i * 5, stumpY, 3, 22);
+            }
+            ctx.restore();
+            ctx.save();
+            if (fall > 0) {
+                ctx.translate(fall * 16 - 4, -fall * 22);
+            }
+            ctx.fillStyle = '#d32f2f';
+            ctx.fillRect(stumpX - 2, stumpY + 20, 19, 3);
+            ctx.restore();
+
+            if (state.ball) {
+                drawBall(state.ball);
+            }
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.fillText(`Over ${Math.floor(state.balls/6)+1}`, 10, 20);
+            if (state.currentBowler) {
+                ctx.font = '12px sans-serif';
+                ctx.fillText(`Bowler: ${state.currentBowler.name}`, 10, 36);
+            }
+        }
+
+        function drawBall(b) {
+            if (b.trail) {
+                for (let i = 0; i < b.trail.length; i++) {
+                    const t = b.trail[i];
+                    ctx.globalAlpha = (i / b.trail.length) * 0.25;
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            }
+            ctx.save();
+            const grad = ctx.createRadialGradient(b.x - 2.5, b.y - 2.5, 1, b.x, b.y, 7.5);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.55, '#f0f0f0');
+            grad.addColorStop(1, '#c9c9c9');
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 7, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.shadowColor = 'rgba(255,255,255,0.85)';
+            ctx.shadowBlur = 9;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(b.x - 2.3, b.y - 2.3, 1.8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.fill();
+            ctx.strokeStyle = '#e53935';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 5, Math.PI * 0.15, Math.PI * 0.85);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 5, Math.PI * 1.15, Math.PI * 1.85);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // ---------- POWERPLAY ----------
+        function computePowerplayOvers() {
+            if (state.selectedOvers <= 1) return 0;
+            if (state.selectedOvers === 2) return 1;
+            if (state.selectedOvers === 5) return 2;
+            return Math.max(1, Math.floor(state.selectedOvers * 0.3));
+        }
+
+        function showPowerplayBanner(text) {
+            const el = document.getElementById('powerplay-banner');
+            if (!el) return;
+            el.textContent = text;
+            el.classList.add('show');
+            clearTimeout(window._ppBannerTimeout);
+            window._ppBannerTimeout = setTimeout(() => el.classList.remove('show'), 2200);
+        }
+
+        function startPowerplayForInnings() {
+            state.powerplayOvers = computePowerplayOvers();
+            initFielderPositions();
+            if (state.powerplayOvers > 0) {
+                showPowerplayBanner(`🟡 POWER PLAY! Overs 1-${state.powerplayOvers} — max 2 fielders outside the circle`);
+                enforcePowerplayField(2);
+            }
+            updateFieldControlsVisibility();
+        }
+
+        function checkPowerplayOverCrossing() {
+            if (state.powerplayOvers > 0 && state.overs === state.powerplayOvers) {
+                showPowerplayBanner('✅ POWER PLAY OVER — field is open now');
+            } else if (state.powerplayOvers > 0 && state.overs < state.powerplayOvers && state.fieldMode === 'auto') {
+                enforcePowerplayField(2);
+            }
+        }
+
+        function isInPowerplay() {
+            return state.powerplayOvers > 0 && state.overs < state.powerplayOvers;
+        }
+
+        function updateFieldControlsVisibility() {
+            const el = document.getElementById('field-controls-container');
+            if (!el) return;
+            const userIsBowling = state.isAIBatting === true;
+            el.style.display = userIsBowling ? 'block' : 'none';
+        }
+
+        document.getElementById('field-auto-btn').addEventListener('click', function() {
+            state.fieldMode = 'auto';
+            this.classList.add('active');
+            document.getElementById('field-manual-btn').classList.remove('active');
+            initFielderPositions();
+            if (isInPowerplay()) enforcePowerplayField(2);
+            gameMsg.textContent = 'Auto fielding placement active.';
+            drawPitch();
+        });
+        document.getElementById('field-manual-btn').addEventListener('click', function() {
+            state.fieldMode = 'manual';
+            this.classList.add('active');
+            document.getElementById('field-auto-btn').classList.remove('active');
+            gameMsg.textContent = isInPowerplay() ?
+                'Drag fielders to place them (max 2 outside the circle during Power Play).' :
+                'Drag fielders on the ground to place them.';
+        });
+
+        // ---------- BOWLING FUNCTIONS ----------
+        function runBowlerRunUp() {
+            const el = document.getElementById('figure-bowler');
+            if (!el) return;
+            el.classList.remove('run-up-1', 'run-up-2', 'delivering');
+            void el.offsetWidth;
+            el.classList.add('run-up-1');
+            setTimeout(() => { el.classList.remove('run-up-1');
+                el.classList.add('run-up-2'); }, 120);
+            setTimeout(() => { el.classList.remove('run-up-2');
+                el.classList.add('delivering'); }, 240);
+            setTimeout(() => { el.classList.remove('delivering'); }, 520);
+        }
+
+        function autoPickDelivery() {
+            const fastVars = ['normal', 'swing-in', 'swing-out', 'reverse', 'leg-cutter', 'off-cutter'];
+            const spinVars = ['normal', 'googly', 'doosra', 'carrom'];
+            state.variation = random(state.bowlType === 'fast' ? fastVars : spinVars);
+        }
+
+        function userBowl() {
+            if (state.isMatchOver) return;
+            if (state.isAIBowling) {
+                gameMsg.textContent = 'AI is bowling. You are batting.';
+                return;
+            }
+            if (state.isBallInPlay) {
+                gameMsg.textContent = 'Ball is already in play!';
+                return;
+            }
+            if (!state.isAIBatting) {
+                gameMsg.textContent = 'You are not bowling right now.';
+                return;
+            }
+
+            const speed = 20 + Math.random() * 60;
+            const isNoBall = speed > 70;
+            autoPickDelivery();
+
+            document.getElementById('needle-no-ball-text').textContent =
+                `⚡ Speed: ${Math.round(speed)}% ${isNoBall ? '— NO-BALL!' : ''}`;
+            document.getElementById('needle-no-ball-text').style.color = isNoBall ? '#f44336' : '#4caf50';
+
+            deliverBallUser(isNoBall, speed);
+        }
+
+        function deliverBallUser(isNoBall, speed) {
+            if (state.isMatchOver) return;
+            runBowlerRunUp();
+
+            const wideLines = ['leg', 'off'];
+            let isWide = false;
+            if (wideLines.includes(state.impactLine) && !isNoBall) {
+                isWide = true;
+            }
+
+            if (isWide) {
+                state.runs += 1;
+                gameMsg.textContent = 'WIDE! 1 extra run. Re-bowled.';
+                updateScoreboard();
+                drawPitch();
+                setTimeout(() => {
+                    if (!state.isMatchOver && state.isAIBatting && !state.isBallInPlay) {
+                        document.getElementById('needle-no-ball-text').textContent = 'Press BOWL to deliver.';
+                    }
+                }, 600);
+                return;
+            }
+
+            if (!isNoBall) {
+                state.balls += 1;
+                state.ballsInOver += 1;
+                if (state.currentBowler) {
+                    state.currentBowler.ballsBowled += 1;
+                }
+                if (state.balls % 6 === 0 && state.balls > 0) {
+                    state.overs += 1;
+                    checkPowerplayOverCrossing();
+                    showResultBanner(`Over ${state.overs} Complete`, 'info');
+                    state.currentOverIndex++;
+                    if (state.currentOverIndex < state.bowlingOrder.length) {
+                        startNewOver();
+                    } else {
+                        if (state.balls >= state.selectedOvers * 6) {
+                            endInnings();
+                            return;
+                        }
+                        if (state.selectedOvers === 5) {
+                            let found = false;
+                            for (let i = 0; i < state.bowlingOrder.length; i++) {
+                                if (state.bowlingOrder[i].ballsBowled < state.bowlingOrder[i].maxBalls) {
+                                    state.currentOverIndex = i;
+                                    startNewOver();
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found) {
+                                endInnings();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            const W = canvas.width,
+                H = canvas.height;
+            const ball = {
+                x: W * 0.48,
+                y: H * 0.12,
+                targetX: W * 0.48,
+                targetY: H * 0.72,
+                progress: 0,
+                speed: 0.015 + (speed / 100) * 0.035,
+                bounce: false,
+                bounceY: 0,
+                swing: 0,
+                spin: 0,
+                variation: state.variation,
+                impactLine: state.impactLine,
+                impactLength: state.impactLength,
+                isNoBall: isNoBall,
+                trail: [],
+                isAI: false,
+            };
+
+            if (state.variation === 'swing-in') ball.swing = -0.3;
+            else if (state.variation === 'swing-out') ball.swing = 0.3;
+            else if (state.variation === 'reverse') ball.swing = (Math.random() < 0.5) ? 0.4 : -0.4;
+            else if (state.variation === 'leg-cutter') ball.swing = 0.2;
+            else if (state.variation === 'off-cutter') ball.swing = -0.2;
+            else if (state.variation === 'googly') ball.swing = 0.25;
+            else if (state.variation === 'doosra') ball.swing = -0.25;
+            else if (state.variation === 'carrom') ball.swing = 0.15;
+            else ball.swing = 0;
+
+            if (state.bowlType === 'spin') {
+                ball.spin = (state.variation === 'googly') ? 0.4 :
+                    (state.variation === 'doosra') ? -0.4 :
+                    (state.variation === 'carrom') ? 0.3 : 0.15;
+            }
+
+            state.ball = ball;
+            state.ballReady = false;
+            state.isBallInPlay = true;
+
+            let lastTime = performance.now();
+
+            function animateBall(time) {
+                const dt = (time - lastTime) / 16;
+                lastTime = time;
+                if (!state.ball || state.isMatchOver) { state.isBallInPlay = false; return; }
+                const b = state.ball;
+                b.progress += b.speed * dt * 1.2;
+                const t = Math.min(b.progress, 1);
+                const x = b.x + (b.targetX - b.x) * t + b.swing * t * 30;
+                let y = b.y + (b.targetY - b.y) * t - 80 * t * (1 - t) * 1.4;
+                if (t > 0.6 && !b.bounce) {
+                    b.bounce = true;
+                    b.bounceY = y;
+                }
+                if (b.bounce) {
+                    const bounceFactor = 1 - (t - 0.6) / 0.4;
+                    y = b.bounceY + (b.targetY - b.bounceY) * (t - 0.6) / 0.4 - 40 * bounceFactor * (1 - bounceFactor) * 1.2;
+                }
+                b.x = x;
+                b.y = y;
+                b.trail.push({ x, y });
+                if (b.trail.length > 10) b.trail.shift();
+
+                if (t >= 1 || y > H * 0.85) {
+                    state.isBallInPlay = false;
+                    state.ballReady = true;
+                    if (state.isAIBatting) {
+                        aiBatting();
+                    } else {
+                        gameMsg.textContent = 'Error: AI not batting.';
+                    }
+                    drawPitch();
+                    return;
+                }
+                drawPitch();
+                requestAnimationFrame(animateBall);
+            }
+            requestAnimationFrame(animateBall);
+            updateScoreboard();
+        }
+
+        // ---------- AI BOWLING ----------
+        function aiBowling() {
+            if (state.isMatchOver || !state.isAIBowling) return;
+            runBowlerRunUp();
+
+            const types = ['fast', 'spin'];
+            state.bowlType = random(types);
+            const fastVars = ['normal', 'swing-in', 'swing-out', 'reverse', 'leg-cutter', 'off-cutter'];
+            const spinVars = ['normal', 'googly', 'doosra', 'carrom'];
+            state.variation = random(state.bowlType === 'fast' ? fastVars : spinVars);
+            const lines = ['leg', 'middle', 'off'];
+            const lengths = ['full', 'good', 'short'];
+            state.impactLine = random(lines);
+            state.impactLength = random(lengths);
+            const speed = 20 + Math.random() * 60;
+            const isNoBall = speed > 70;
+
+            if (isNoBall) {
+                state.runs += 1;
+                gameMsg.textContent = 'AI bowls a NO-BALL! Extra run + Free Hit.';
+                updateScoreboard();
+                drawPitch();
+                setTimeout(() => aiBowling(), 800);
+                return;
+            }
+
+            const wideLines = ['leg', 'off'];
+            let isWide = false;
+            if (wideLines.includes(state.impactLine) && !isNoBall) {
+                isWide = true;
+            }
+            if (isWide) {
+                state.runs += 1;
+                gameMsg.textContent = 'WIDE! 1 extra run. Re-bowled.';
+                updateScoreboard();
+                drawPitch();
+                setTimeout(() => aiBowling(), 800);
+                return;
+            }
+
+            if (!isNoBall) {
+                state.balls += 1;
+                state.ballsInOver += 1;
+                if (state.currentBowler) {
+                    state.currentBowler.ballsBowled += 1;
+                }
+                if (state.balls % 6 === 0 && state.balls > 0) {
+                    state.overs += 1;
+                    checkPowerplayOverCrossing();
+                    showResultBanner(`Over ${state.overs} Complete`, 'info');
+                    state.currentOverIndex++;
+                    if (state.currentOverIndex < state.bowlingOrder.length) {
+                        startNewOver();
+                    } else {
+                        if (state.balls >= state.selectedOvers * 6) {
+                            endInnings();
+                            return;
+                        }
+                        if (state.selectedOvers === 5) {
+                            let found = false;
+                            for (let i = 0; i < state.bowlingOrder.length; i++) {
+                                if (state.bowlingOrder[i].ballsBowled < state.bowlingOrder[i].maxBalls) {
+                                    state.currentOverIndex = i;
+                                    startNewOver();
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found) {
+                                endInnings();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            const W = canvas.width,
+                H = canvas.height;
+            const ball = {
+                x: W * 0.48,
+                y: H * 0.12,
+                targetX: W * 0.48,
+                targetY: H * 0.72,
+                progress: 0,
+                speed: 0.015 + (speed / 100) * 0.035,
+                bounce: false,
+                bounceY: 0,
+                swing: 0,
+                spin: 0,
+                variation: state.variation,
+                impactLine: state.impactLine,
+                impactLength: state.impactLength,
+                isNoBall: isNoBall,
+                trail: [],
+                isAI: true,
+            };
+
+            if (state.variation === 'swing-in') ball.swing = -0.3;
+            else if (state.variation === 'swing-out') ball.swing = 0.3;
+            else if (state.variation === 'reverse') ball.swing = (Math.random() < 0.5) ? 0.4 : -0.4;
+            else if (state.variation === 'leg-cutter') ball.swing = 0.2;
+            else if (state.variation === 'off-cutter') ball.swing = -0.2;
+            else if (state.variation === 'googly') ball.swing = 0.25;
+            else if (state.variation === 'doosra') ball.swing = -0.25;
+            else if (state.variation === 'carrom') ball.swing = 0.15;
+            else ball.swing = 0;
+
+            if (state.bowlType === 'spin') {
+                ball.spin = (state.variation === 'googly') ? 0.4 :
+                    (state.variation === 'doosra') ? -0.4 :
+                    (state.variation === 'carrom') ? 0.3 : 0.15;
+            }
+
+            state.ball = ball;
+            state.ballReady = false;
+            state.isBallInPlay = true;
+
+            let lastTime = performance.now();
+
+            function animateBall(time) {
+                const dt = (time - lastTime) / 16;
+                lastTime = time;
+                if (!state.ball || state.isMatchOver) { state.isBallInPlay = false; return; }
+                const b = state.ball;
+                b.progress += b.speed * dt * 1.2;
+                const t = Math.min(b.progress, 1);
+                const x = b.x + (b.targetX - b.x) * t + b.swing * t * 30;
+                let y = b.y + (b.targetY - b.y) * t - 80 * t * (1 - t) * 1.4;
+                if (t > 0.6 && !b.bounce) {
+                    b.bounce = true;
+                    b.bounceY = y;
+                }
+                if (b.bounce) {
+                    const bounceFactor = 1 - (t - 0.6) / 0.4;
+                    y = b.bounceY + (b.targetY - b.bounceY) * (t - 0.6) / 0.4 - 40 * bounceFactor * (1 - bounceFactor) * 1.2;
+                }
+                b.x = x;
+                b.y = y;
+                b.trail.push({ x, y });
+                if (b.trail.length > 10) b.trail.shift();
+
+                if (t >= 1 || y > H * 0.85) {
+                    state.isBallInPlay = false;
+                    state.ballReady = true;
+                    gameMsg.textContent = '⚡ Tap the pitch or use D‑pad to play your shot!';
+                    document.getElementById('bat-controls-container').style.display = 'block';
+                    document.getElementById('bowl-controls-container').style.display = 'none';
+                    drawPitch();
+                    return;
+                }
+                drawPitch();
+                requestAnimationFrame(animateBall);
+            }
+            requestAnimationFrame(animateBall);
+            updateScoreboard();
+        }
+
+        // ---------- SHOT RESULT CALCULATION (with realistic dismissals) ----------
+        function calculateShotResult(direction, timing, isLoft, ballX, ballY) {
+            const W = canvas.width,
+                H = canvas.height;
+            let angle = 0;
+            if (direction === 'left') angle = -Math.PI / 3;
+            else if (direction === 'right') angle = Math.PI / 3;
+            else angle = 0;
+
+            const power = 180 + Math.random() * 80;
+            const endX = ballX + Math.sin(angle) * power;
+            const endY = ballY - Math.cos(angle) * power * 0.9;
+
+            let nearestDist = Infinity;
+            let nearestIdx = -1;
+            if (state.fielderPositions) {
+                state.fielderPositions.forEach((f, i) => {
+                    const d = Math.hypot(f.x - endX, f.y - endY);
+                    if (d < nearestDist) {
+                        nearestDist = d;
+                        nearestIdx = i;
+                    }
+                });
+            }
+
+            const catchThreshold = 50;
+            const isFielded = nearestDist < catchThreshold && nearestIdx >= 0;
+
+            const dropChance = 0.10;
+            let isDrop = false;
+            let isOut = false;
+            let outType = '';
+            let runs = 0;
+
+            // Check for Bowled/LBW if impact is near stumps
+            const isNearStumps = (state.impactLine === 'middle' || state.impactLine === 'leg') &&
+                (state.impactLength === 'good' || state.impactLength === 'full');
+
+            // If timing is early/late and near stumps, high chance of bowled/LBW
+            if (isNearStumps && (timing === 'early' || timing === 'late') && !isLoft) {
+                const bowledChance = 0.25;
+                if (Math.random() < bowledChance) {
+                    isOut = true;
+                    outType = Math.random() < 0.5 ? 'Bowled' : 'LBW';
+                    runs = 0;
+                    gameMsg.textContent = `OUT! ${outType}!`;
+                    showResultBanner(`OUT! ${outType}`, 'out');
+                    triggerStumpsFall();
+                    return { runs, isOut, outType, isDrop };
+                }
+            }
+
+            // Check catch
+            const loftBonus = isLoft ? 1.4 : 1.0;
+            const effectiveDist = nearestDist / loftBonus;
+
+            if (isFielded && effectiveDist < catchThreshold) {
+                if (Math.random() < dropChance) {
+                    isDrop = true;
+                    isOut = false;
+                    runs = 1;
+                    gameMsg.textContent = 'Dropped catch! You survive!';
+                    showResultBanner('DROPPED!', 'info');
+                } else {
+                    isOut = true;
+                    outType = 'Caught';
+                    runs = 0;
+                    gameMsg.textContent = 'Caught!';
+                    showResultBanner('CAUGHT!', 'out');
+                    triggerStumpsFall();
+                }
+            } else {
+                // Not caught – calculate runs
+                if (isLoft) {
+                    if (timing === 'perfect') {
+                        runs = (Math.random() < 0.6) ? 6 : 4;
+                        showResultBanner(runs === 6 ? 'SIX!' : 'FOUR!', runs === 6 ? 'six' : 'four');
+                    } else if (timing === 'early' || timing === 'late') {
+                        runs = (Math.random() < 0.3) ? 4 : (Math.random() < 0.6 ? 2 : 0);
+                        if (runs === 4) showResultBanner('FOUR!', 'four');
+                    } else {
+                        runs = 0;
+                    }
+                } else {
+                    const gapFactor = nearestDist / 80;
+                    if (timing === 'perfect') {
+                        if (gapFactor > 1.5) runs = 4;
+                        else if (gapFactor > 1.0) runs = 3;
+                        else runs = 2;
+                        if (runs === 4) showResultBanner('FOUR!', 'four');
+                        else if (runs === 3) showResultBanner('THREE!', 'info');
+                    } else if (timing === 'early' || timing === 'late') {
+                        if (gapFactor > 1.2) runs = 2;
+                        else runs = 1;
+                    } else {
+                        runs = 0;
+                    }
+                }
+                if (runs === 0 && !isOut) runs = 1;
+            }
+
+            document.getElementById('timing-indicator').textContent = `⏱️ Timing: ${timing.toUpperCase()}`;
+            return { runs, isOut, outType, isDrop };
+        }
+
+        // ---------- AI BATTING ----------
+        function aiBatting() {
+            if (!state.ballReady || state.isMatchOver) return;
+            state.ballReady = false;
+            const ball = state.ball;
+            if (!ball) return;
+
+            const skill = 0.4 + Math.random() * 0.3;
+            const rand = Math.random();
+            let timing = 'perfect';
+            if (rand < (1 - skill)) timing = 'early';
+            else if (rand < (1 - skill) * 0.5) timing = 'late';
+            else timing = 'perfect';
+
+            let direction = 'middle';
+            if (ball.impactLine === 'leg') direction = 'left';
+            else if (ball.impactLine === 'off') direction = 'right';
+
+            triggerBatSwing(direction);
+
+            const isLoft = (Math.random() < 0.15) || (state.runs < 15 && state.balls < 10);
+            const result = calculateShotResult(direction, timing, isLoft, ball.x, ball.y);
+
+            if (result.isOut) {
+                state.wickets += 1;
+                gameMsg.textContent = `AI OUT! ${result.outType}`;
+                showResultBanner(`OUT! ${result.outType}`, 'out');
+                triggerStumpsFall();
+            } else {
+                state.runs += result.runs;
+                gameMsg.textContent = `AI scores ${result.runs} runs`;
+            }
+
+            state.ball = null;
+            state.isBallInPlay = false;
+            state.ballReady = false;
+
+            if (state.wickets >= 10 || state.balls >= state.selectedOvers * 6) {
+                showResultBanner('Innings Complete', 'info');
+                endInnings();
+                return;
+            }
+            if (state.currentInnings === 2 && state.target !== null && state.runs >= state.target) {
+                gameMsg.textContent = '🏆 Target chased! AI wins!';
+                endMatch(state.battingTeam);
+                return;
+            }
+
+            updateScoreboard();
+            drawPitch();
+
+            if (state.isAIBatting && !state.isMatchOver) {
+                document.getElementById('bowl-controls-container').style.display = 'block';
+                document.getElementById('bat-controls-container').style.display = 'none';
+                statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
+                statusBanner.className = 'bowling';
+                gameMsg.textContent = 'Press BOWL to deliver.';
+            } else if (state.isAIBowling && !state.isMatchOver) {
+                document.getElementById('bat-controls-container').style.display = 'none';
+                document.getElementById('bowl-controls-container').style.display = 'none';
+                setTimeout(() => aiBowling(), 1000);
+            }
+        }
+
+        // ---------- USER BATTING ----------
+        let dragStartX = 0,
+            dragStartY = 0;
+        let isDragging = false;
+
+        canvas.addEventListener('mousedown', startDrag);
+        canvas.addEventListener('mousemove', moveDrag);
+        canvas.addEventListener('mouseup', endDrag);
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+        function handleTouchStart(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = (touch.clientX - rect.left) / rect.width * canvas.width;
+            const y = (touch.clientY - rect.top) / rect.height * canvas.height;
+            startDrag({ clientX: touch.clientX, clientY: touch.clientY }, x, y);
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = (touch.clientX - rect.left) / rect.width * canvas.width;
+            const y = (touch.clientY - rect.top) / rect.height * canvas.height;
+            moveDrag({ clientX: touch.clientX, clientY: touch.clientY }, x, y);
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            endDrag();
+        }
+
+        function isFieldPlacementActive() {
+            return state.fieldMode === 'manual' && state.isAIBatting === true && !state.ballReady && !state.isBallInPlay;
+        }
+
+        function startDrag(e, canvasX, canvasY) {
+            const rect = canvas.getBoundingClientRect();
+            const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
+            const y = canvasY !== undefined ? canvasY : (e.clientY - rect.top) / rect.height * canvas.height;
+            if (isFieldPlacementActive()) {
+                return;
+            }
+            if (!state.ballReady || state.isMatchOver || state.isAIBatting) return;
+            dragStartX = x;
+            dragStartY = y;
+            window._lastDragX = x;
+            window._lastDragY = y;
+            isDragging = true;
+            clearDragIndicator();
+        }
+
+        function moveDrag(e, canvasX, canvasY) {
+            const rect = canvas.getBoundingClientRect();
+            const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
+            const y = canvasY !== undefined ? canvasY : (e.clientY - rect.top) / rect.height * canvas.height;
+            if (!isDragging || !state.ballReady) return;
+            window._lastDragX = x;
+            window._lastDragY = y;
+            updateDragIndicator(canvas.width * 0.48, canvas.height * 0.6, x, y);
+        }
+
+        function endDrag() {
+            clearDragIndicator();
+            if (!isDragging || !state.ballReady || state.isMatchOver || state.isAIBatting) {
+                isDragging = false;
+                return;
+            }
+            isDragging = false;
+            const endX = (window._lastDragX !== undefined) ? window._lastDragX : dragStartX;
+            const endY = (window._lastDragY !== undefined) ? window._lastDragY : dragStartY;
+            processUserShot(endX, endY);
+        }
+
+        function tapShot(direction) {
+            if (!state.ballReady || state.isMatchOver || state.isAIBatting) return;
+            const batX = canvas.width * 0.48;
+            let endX = batX;
+            if (direction === 'left') endX = batX - 70;
+            else if (direction === 'right') endX = batX + 70;
+            const endY = state.ball ? state.ball.y : canvas.height * 0.6;
+            processUserShot(endX, endY);
+        }
+        document.getElementById('dpad-left').addEventListener('click', () => tapShot('left'));
+        document.getElementById('dpad-straight').addEventListener('click', () => tapShot('middle'));
+        document.getElementById('dpad-right').addEventListener('click', () => tapShot('right'));
+
+        document.getElementById('move-left').addEventListener('click', function() {
+            if (state.isMatchOver) return;
+            state.batsmanXOffset = Math.max(-20, state.batsmanXOffset - 4);
+            const el = document.getElementById('figure-batsman');
+            if (el) {
+                el.style.left = (48 + state.batsmanXOffset * 0.2) + '%';
+            }
+            gameMsg.textContent = 'Batsman moved left';
+        });
+        document.getElementById('move-right').addEventListener('click', function() {
+            if (state.isMatchOver) return;
+            state.batsmanXOffset = Math.min(20, state.batsmanXOffset + 4);
+            const el = document.getElementById('figure-batsman');
+            if (el) {
+                el.style.left = (48 + state.batsmanXOffset * 0.2) + '%';
+            }
+            gameMsg.textContent = 'Batsman moved right';
+        });
+
+        function processUserShot(endX, endY) {
+            if (!state.ballReady || state.isMatchOver) return;
+            state.ballReady = false;
+            const ball = state.ball;
+            if (!ball) return;
+
+            const batX = canvas.width * 0.48;
+            const diffX = endX - batX;
+            let direction = 'middle';
+            if (diffX < -30) direction = 'left';
+            else if (diffX > 30) direction = 'right';
+
+            triggerBatSwing(direction);
+
+            const t = ball.progress;
+            let timing = 'perfect';
+            if (t < 0.6) timing = 'early';
+            else if (t > 0.92) timing = 'late';
+            else timing = 'perfect';
+            updateBatTimingNeedle(timing);
+
+            const isLoft = state.loftActive;
+            const result = calculateShotResult(direction, timing, isLoft, ball.x, ball.y);
+
+            if (result.isOut) {
+                state.wickets += 1;
+                gameMsg.textContent = `OUT! ${result.outType}`;
+                showResultBanner(`OUT! ${result.outType}`, 'out');
+                triggerStumpsFall();
+            } else {
+                state.runs += result.runs;
+                if (result.isDrop) {
+                    gameMsg.textContent = `Dropped catch! ${result.runs} run(s)`;
+                } else {
+                    gameMsg.textContent = `${result.runs} runs (${timing})`;
+                }
+            }
+
+            state.ball = null;
+            state.isBallInPlay = false;
+            state.ballReady = false;
+
+            if (state.wickets >= 10 || state.balls >= state.selectedOvers * 6) {
+                showResultBanner('Innings Complete', 'info');
+                endInnings();
+                return;
+            }
+            if (state.currentInnings === 2 && state.target !== null && state.runs >= state.target) {
+                gameMsg.textContent = '🏆 Target chased! You win!';
+                endMatch(state.battingTeam);
+                return;
+            }
+
+            updateScoreboard();
+            drawPitch();
+
+            if (state.isAIBowling && !state.isMatchOver) {
+                document.getElementById('bat-controls-container').style.display = 'none';
+                document.getElementById('bowl-controls-container').style.display = 'none';
+                setTimeout(() => aiBowling(), 1000);
+            } else if (state.isAIBatting && !state.isMatchOver) {
+                document.getElementById('bowl-controls-container').style.display = 'block';
+                document.getElementById('bat-controls-container').style.display = 'none';
+                statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
+                statusBanner.className = 'bowling';
+                gameMsg.textContent = 'Press BOWL to deliver.';
+            }
+        }
+
+        // ---------- END INNINGS (FIXED WIN/LOSS LOGIC) ----------
+        function endInnings() {
+            if (state.currentInnings === 1) {
+                // Innings 1 complete – set target
+                state.innings1 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
+                state.target = state.runs + 1;
+                state.currentInnings = 2;
+
+                // Store which team batted first
+                state.innings1Team = state.battingTeam;
+
+                // Swap teams
+                const temp = state.battingTeam;
+                state.battingTeam = state.bowlingTeam;
+                state.bowlingTeam = temp;
+                state.innings2Team = state.battingTeam;
+                updateFigures();
+
+                state.runs = 0;
+                state.wickets = 0;
+                state.balls = 0;
+                state.overs = 0;
+                state.isAIBowling = !state.isAIBowling;
+                state.isAIBatting = !state.isAIBatting;
+                selectBowlers();
+                state.currentOverIndex = 0;
+                state.ballsInOver = 0;
+                startNewOver();
+
+                gameMsg.textContent = `Innings 1 over! Target: ${state.target}`;
+                updateScoreboard();
+                startPowerplayForInnings();
+                drawPitch();
+                state.ball = null;
+                state.ballReady = false;
+
+                if (state.isAIBowling) {
+                    document.getElementById('bowl-controls-container').style.display = 'none';
+                    document.getElementById('bat-controls-container').style.display = 'block';
+                    document.getElementById('field-controls-container').style.display = 'none';
+                    statusBanner.textContent = '🟢 YOU ARE BATTING';
+                    statusBanner.className = 'batting';
+                    gameMsg.textContent = 'AI is bowling. Watch the ball and tap to bat!';
+                    setTimeout(() => aiBowling(), 1500);
+                } else {
+                    document.getElementById('bowl-controls-container').style.display = 'block';
+                    document.getElementById('bat-controls-container').style.display = 'none';
+                    updateFieldControlsVisibility();
+                    statusBanner.textContent = '🔴 YOU ARE BOWLING';
+                    statusBanner.className = 'bowling';
+                    gameMsg.textContent = 'Press BOWL to deliver.';
+                }
+            } else {
+                // Innings 2 complete – determine winner
+                state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
+                state.innings2Team = state.battingTeam;
+
+                const team1 = state.innings1Team;
+                const team2 = state.innings2Team;
+                const runs1 = state.innings1.runs;
+                const runs2 = state.innings2.runs;
+                const wickets2 = state.innings2.wickets;
+
+                let winner = null;
+                let winMessage = '';
+
+                if (runs2 > runs1) {
+                    // Team 2 (chasing) wins
+                    winner = team2;
+                    const wicketsRemaining = 10 - wickets2;
+                    if (wicketsRemaining > 0) {
+                        winMessage = `${team2.toUpperCase()} won by ${wicketsRemaining} wicket${wicketsRemaining>1?'s':''}!`;
+                    } else {
+                        winMessage = `${team2.toUpperCase()} won by ${runs2 - runs1} runs!`;
+                    }
+                } else if (runs2 === runs1) {
+                    // Tie
+                    winMessage = `Match Tied!`;
+                    winner = null;
+                } else {
+                    // Team 1 wins
+                    winner = team1;
+                    const runsShort = runs1 - runs2;
+                    winMessage = `${team1.toUpperCase()} won by ${runsShort} run${runsShort>1?'s':''}!`;
+                }
+
+                document.getElementById('winner-text').textContent = winMessage;
+
+                // MOTM
+                const motm = state.playingXI[0] || { name: 'Player' };
+                state.motm = motm.name;
+                document.getElementById('motm-name').textContent = motm.name;
+                document.getElementById('motm-stats').textContent = `⭐ Man of the Match`;
+
+                const s1 = state.innings1,
+                    s2 = state.innings2;
+                const overs1 = Math.floor(s1.balls / 6) + '.' + (s1.balls % 6);
+                const overs2 = Math.floor(s2.balls / 6) + '.' + (s2.balls % 6);
+                document.getElementById('score-summary').innerHTML = `
+                    <div><span>${state.innings1Team.toUpperCase()}</span><span>${s1.runs}/${s1.wickets} (${overs1})</span></div>
+                    <div><span>${state.innings2Team.toUpperCase()}</span><span>${s2.runs}/${s2.wickets} (${overs2})</span></div>
+                `;
+                showScreen('result-screen');
+                state.isMatchOver = true;
+            }
+        }
+
+        // ---------- END MATCH (legacy, kept for safety) ----------
+        function endMatch(winner) {
+            // This should not be called directly anymore; endInnings handles everything
+            // But keep as fallback
+            if (state.isMatchOver) return;
+            state.isMatchOver = true;
+            // Determine winner message
+            const userTeam = state.selectedTeam;
+            const isUserWin = winner === userTeam;
+            const winMsg = isUserWin ? `🎉 ${userTeam.toUpperCase()} WINS! 🎉` : `😞 ${userTeam.toUpperCase()} Loses!`;
+            document.getElementById('winner-text').textContent = winMsg;
+            const motm = state.playingXI[0] || { name: 'Player' };
+            state.motm = motm.name;
+            document.getElementById('motm-name').textContent = motm.name;
+            document.getElementById('motm-stats').textContent = `⭐ Man of the Match`;
+            const s1 = state.innings1,
+                s2 = state.innings2;
+            const overs1 = Math.floor(s1.balls / 6) + '.' + (s1.balls % 6);
+            const overs2 = Math.floor(s2.balls / 6) + '.' + (s2.balls % 6);
+            const t1 = state.innings1Team || state.selectedTeam;
+            const t2 = state.innings2Team || (state.selectedTeam === 'india' ? 'pakistan' : 'india');
+            document.getElementById('score-summary').innerHTML = `
+                <div><span>${t1.toUpperCase()}</span><span>${s1.runs}/${s1.wickets} (${overs1})</span></div>
+                <div><span>${t2.toUpperCase()}</span><span>${s2.runs}/${s2.wickets} (${overs2})</span></div>
+            `;
+            showScreen('result-screen');
+        }
+
+        // ---------- EVENT BINDINGS ----------
+        document.getElementById('loft-btn').addEventListener('click', function() {
+            state.loftActive = !state.loftActive;
+            this.classList.toggle('active');
+            gameMsg.textContent = state.loftActive ? '🏏 LOFT ACTIVE (High risk)' : 'Normal shot';
+        });
+
+        document.getElementById('btn-bowl').addEventListener('click', function() {
+            if (state.isMatchOver) return;
+            if (state.isAIBowling) {
+                gameMsg.textContent = 'AI is bowling. You are batting.';
+                return;
+            }
+            if (state.isBallInPlay) {
+                gameMsg.textContent = 'Ball is already in play!';
+                return;
+            }
+            if (!state.isAIBatting) {
+                gameMsg.textContent = 'You are not bowling right now.';
+                return;
+            }
+            userBowl();
+        });
+
+        document.getElementById('btn-reset-game').addEventListener('click', function() {
+            if (confirm('Reset game?')) {
+                location.reload();
+            }
+        });
+
+        document.getElementById('btn-play-again').addEventListener('click', function() {
+            location.reload();
+        });
+
+        document.querySelectorAll('[data-bowl]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (state.isAIBowling || state.isAIBatting) return;
+                document.querySelectorAll('[data-bowl]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                state.bowlType = this.dataset.bowl;
+            });
+        });
+
+        document.querySelectorAll('.impact-zone').forEach(zone => {
+            zone.addEventListener('click', function() {
+                document.querySelectorAll('.impact-zone').forEach(z => z.classList.remove('selected'));
+                this.classList.add('selected');
+                state.impactLine = this.dataset.line;
+                state.impactLength = this.dataset.length;
+            });
+        });
+
+        document.getElementById('btn-auto-bowl').addEventListener('click', function() {
+            if (state.isMatchOver) return;
+            if (state.isAIBowling) {
+                gameMsg.textContent = 'AI is bowling. You are batting.';
+                return;
+            }
+            if (state.isBallInPlay) return;
+            if (!state.isAIBatting) {
+                gameMsg.textContent = 'You are not bowling right now.';
+                return;
+            }
+            state.bowlType = random(['fast', 'spin']);
+            document.querySelectorAll('[data-bowl]').forEach(b => b.classList.toggle('active', b.dataset.bowl === state
+            .bowlType));
+            const speed = 20 + Math.random() * 60;
+            document.getElementById('needle-no-ball-text').textContent =
+                `⚡ Auto speed: ${Math.round(speed)}% ${speed>70?'— NO-BALL!':''}`;
+            document.getElementById('needle-no-ball-text').style.color = speed > 70 ? '#f44336' : '#4caf50';
+            deliverBallUser(speed > 70, speed);
+        });
+
+        // ---------- ANIMATION LOOP ----------
+        function animate() {
+            if (!document.querySelector('#game-screen.active')) {
+                requestAnimationFrame(animate);
+                return;
+            }
+            drawPitch();
+            requestAnimationFrame(animate);
+        }
+
+        // ---------- INIT ----------
+        state.variation = 'normal';
+        state.bowlType = 'fast';
+        state.impactLine = 'middle';
+        state.impactLength = 'good';
+        animate();
+        gameMsg.textContent = 'Select your team and start.';
+    </script>
+</body>
+</html>
