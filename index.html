@@ -437,15 +437,68 @@
 
         /* ---- Floating D-Pad (right side) ---- */
         #dpad-container {
-            position: absolute;
-            right: 6px;
+            position: fixed;
+            right: max(6px, calc(50vw - 250px + 6px));
             top: 50%;
             transform: translateY(-50%);
             display: flex;
             flex-direction: column;
             gap: 4px;
-            z-index: 10;
+            z-index: 40;
             pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        #dpad-container.dpad-disabled {
+            opacity: 0.35;
+        }
+        #dpad-container.dpad-disabled .dpad-btn {
+            pointer-events: none !important;
+        }
+        #bowl-dpad-container {
+            position: fixed;
+            left: max(6px, calc(50vw - 250px + 6px));
+            top: 18%;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 40;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        #bowl-dpad-container .dpad-btn {
+            pointer-events: auto;
+            background: rgba(42, 64, 85, 0.85);
+            color: #fff;
+            border: 2px solid #f5c84255;
+            border-radius: 10px;
+            padding: 5px 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.15s;
+            touch-action: manipulation;
+            backdrop-filter: blur(4px);
+            text-align: center;
+            min-width: 62px;
+            min-height: 32px;
+            white-space: nowrap;
+        }
+        #bowl-dpad-container .dpad-btn:active {
+            transform: scale(0.85);
+            background: #f5c842;
+            color: #1a2e3f;
+        }
+        #bowl-dpad-container .dpad-btn.bowl-dpad-go {
+            margin-top: 6px;
+            background: #f5c842;
+            color: #1a2e3f;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        #bowl-dpad-container.dpad-disabled {
+            opacity: 0.35;
+        }
+        #bowl-dpad-container.dpad-disabled .dpad-btn {
+            pointer-events: none !important;
         }
         #dpad-container .dpad-btn {
             pointer-events: auto;
@@ -473,7 +526,8 @@
             padding: 4px 6px;
             min-height: 32px;
         }
-        #dpad-container .dpad-label {
+        #dpad-container .dpad-label,
+        #bowl-dpad-container .dpad-label {
             font-size: 0.5rem;
             color: #aaa;
             text-align: center;
@@ -731,14 +785,92 @@
                 font-size: 1rem;
                 padding: 4px 6px;
             }
+            #bowl-dpad-container .dpad-btn {
+                min-width: 48px;
+                min-height: 28px;
+                font-size: 0.65rem;
+                padding: 3px 4px;
+            }
+        }
+        .howto-box {
+            background: #24384a;
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: #e6e6e6;
+            max-height: 46vh;
+            overflow-y: auto;
+        }
+        .howto-box h4 {
+            color: #f5c842;
+            margin: 10px 0 4px;
+            font-size: 0.88rem;
+        }
+        .howto-box h4:first-child {
+            margin-top: 0;
+        }
+        .howto-box ul {
+            margin: 0 0 4px 18px;
+            padding: 0;
+        }
+        .howto-box li {
+            margin-bottom: 3px;
+        }
+        #info-bubble {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            right: max(10px, calc(50vw - 250px + 10px));
+            z-index: 60;
+            background: rgba(42, 64, 85, 0.9);
+            border: 2px solid #f5c84255;
+            color: #f5c842;
+            border-radius: 50%;
+            width: 34px;
+            height: 34px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+        }
+        #info-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 70;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        #info-modal.show {
+            display: flex;
+        }
+        #info-modal-card {
+            background: #1a2e3f;
+            border-radius: 18px;
+            padding: 16px;
+            width: 100%;
+            max-width: 460px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+        }
+        #info-modal-card .btn {
+            margin-top: 12px;
         }
     </style>
 </head>
 <body>
     <div id="app">
 
+        <!-- WELCOME / HOW TO PLAY SCREEN -->
+        <div id="welcome-screen" class="screen active">
+            <h1>🏏 T20 CRICKET</h1>
+            <h3 style="text-align:center;color:#ccc;">India vs Pakistan</h3>
+            <div class="howto-box" id="howto-content"></div>
+            <button class="btn" id="btn-welcome-continue">Continue ▶</button>
+        </div>
+
         <!-- MENU SCREEN -->
-        <div id="menu-screen" class="screen active">
+        <div id="menu-screen" class="screen">
             <h1>🏏 T20 CRICKET</h1>
             <h3 style="text-align:center;color:#ccc;">India vs Pakistan</h3>
             <div class="flag-container">
@@ -811,7 +943,7 @@
                 <div class="result-banner" id="result-banner"></div>
                 <div id="powerplay-banner"></div>
 
-                <!-- Floating D-Pad -->
+                <!-- Floating D-Pad (batting) -->
                 <div id="dpad-container">
                     <div class="dpad-label">MOVE</div>
                     <button class="dpad-btn move-btn" id="move-left">◀</button>
@@ -820,6 +952,19 @@
                     <button class="dpad-btn" id="dpad-left">⬅️</button>
                     <button class="dpad-btn" id="dpad-straight">⬆️</button>
                     <button class="dpad-btn" id="dpad-right">➡️</button>
+                </div>
+
+                <!-- Floating D-Pad (bowling) -->
+                <div id="bowl-dpad-container">
+                    <div class="dpad-label">LENGTH</div>
+                    <button class="dpad-btn" id="bowl-dpad-full">⬆️ Full</button>
+                    <button class="dpad-btn" id="bowl-dpad-good">⏺ Good</button>
+                    <button class="dpad-btn" id="bowl-dpad-short">⬇️ Short</button>
+                    <div class="dpad-label" style="margin-top:8px;">LINE</div>
+                    <button class="dpad-btn" id="bowl-dpad-leg">⬅️ Leg</button>
+                    <button class="dpad-btn" id="bowl-dpad-middle">⏺ Mid</button>
+                    <button class="dpad-btn" id="bowl-dpad-off">➡️ Off</button>
+                    <button class="dpad-btn bowl-dpad-go" id="bowl-dpad-go">⚡ BOWL</button>
                 </div>
             </div>
 
@@ -840,7 +985,7 @@
                         <button class="bowl-btn" data-bowl="spin">🌀 Spin</button>
                     </div>
                 </div>
-                <div style="text-align:center;font-size:0.8rem;color:#aaa;">Select impact zone</div>
+                <div style="text-align:center;font-size:0.8rem;color:#aaa;">Tap the pitch to pick a spot, select a zone, or use the D‑pad (left)</div>
                 <div class="impact-grid" id="impact-grid">
                     <div class="impact-zone" data-line="leg" data-length="full">Full<br>Leg</div>
                     <div class="impact-zone" data-line="middle" data-length="full">Full<br>Mid</div>
@@ -865,7 +1010,7 @@
             <div id="bat-controls-container" style="display:none;">
                 <div class="bat-controls">
                     <button class="loft-btn" id="loft-btn">🏏 LOFT</button>
-                    <span style="font-size:0.7rem;color:#aaa;margin-left:8px;">Drag on pitch or use D‑pad</span>
+                    <span style="font-size:0.7rem;color:#aaa;margin-left:8px;">Drag on the pitch or use the D‑pad (right)</span>
                 </div>
                 <div class="bat-timing-meter">
                     <div class="timing-track">
@@ -902,6 +1047,15 @@
             <button class="btn" id="btn-play-again">🔄 Play Again</button>
         </div>
 
+    </div>
+
+    <!-- Floating "how to play" info bubble -->
+    <button id="info-bubble" title="How to play">ℹ️</button>
+    <div id="info-modal">
+        <div id="info-modal-card">
+            <div class="howto-box" id="howto-content-modal"></div>
+            <button class="btn" id="btn-info-close">Close</button>
+        </div>
     </div>
 
     <script>
@@ -1061,6 +1215,26 @@
             </svg>`;
         }
 
+        function setDpadEnabled(enabled) {
+            const dpad = document.getElementById('dpad-container');
+            if (!dpad) return;
+            dpad.classList.toggle('dpad-disabled', !enabled);
+        }
+
+        function setBowlDpadEnabled(enabled) {
+            const dpad = document.getElementById('bowl-dpad-container');
+            if (!dpad) return;
+            dpad.classList.toggle('dpad-disabled', !enabled);
+        }
+
+        function selectImpactZone(line, length) {
+            state.impactLine = line;
+            state.impactLength = length;
+            document.querySelectorAll('.impact-zone').forEach(z => {
+                z.classList.toggle('selected', z.dataset.line === line && z.dataset.length === length);
+            });
+        }
+
         function updateFigures() {
             const batEl = document.getElementById('figure-batsman');
             const bowlEl = document.getElementById('figure-bowler');
@@ -1156,6 +1330,45 @@
             }
             requestAnimationFrame(step);
         }
+
+        // ---------- HOW TO PLAY ----------
+        const HOWTO_HTML = `
+            <h4>🎯 Goal</h4>
+            <ul>
+                <li>Pick a team and number of overs, then win the toss and choose to bat or bowl first.</li>
+                <li>Whoever scores more runs after both innings wins the match.</li>
+            </ul>
+            <h4>🏏 Batting</h4>
+            <ul>
+                <li>Watch the ball leave the bowler's hand and travel down the pitch.</li>
+                <li>Play your shot either by <b>dragging on the pitch</b> toward where you want to hit it, or using the <b>D‑pad on the right</b> — both work, use whichever you prefer.</li>
+                <li>Toggle <b>LOFT</b> for a chance at a big hit — higher reward, but a fielder can catch you out if it's not timed well.</li>
+                <li>Timing matters: the meter shows EARLY / PERFECT / LATE as the ball arrives.</li>
+                <li>Aim for the gaps between fielders for boundaries; hitting straight at a fielder risks being caught (though catches are sometimes dropped — more often early in the innings).</li>
+            </ul>
+            <h4>⚡ Bowling</h4>
+            <ul>
+                <li>Choose fast or spin, then set your line & length — either by <b>tapping a spot on the pitch</b> or using the <b>D‑pad on the left</b>.</li>
+                <li>Press BOWL (or the D‑pad's BOWL button) to deliver. Keep an eye on speed — over 70% risks a no-ball.</li>
+            </ul>
+            <h4>🎮 Controls</h4>
+            <ul>
+                <li>Only the pad for your current role (batting or bowling) is active — the other dims out automatically.</li>
+                <li>Tap the ℹ️ bubble any time to see these instructions again.</li>
+            </ul>
+        `;
+        document.getElementById('howto-content').innerHTML = HOWTO_HTML;
+        document.getElementById('howto-content-modal').innerHTML = HOWTO_HTML;
+
+        document.getElementById('btn-welcome-continue').addEventListener('click', () => {
+            showScreen('menu-screen');
+        });
+        document.getElementById('info-bubble').addEventListener('click', () => {
+            document.getElementById('info-modal').classList.add('show');
+        });
+        document.getElementById('btn-info-close').addEventListener('click', () => {
+            document.getElementById('info-modal').classList.remove('show');
+        });
 
         // ---------- GAME STATE ----------
         const state = {
@@ -1442,7 +1655,9 @@
 
             if (state.isAIBowling) {
                 document.getElementById('bowl-controls-container').style.display = 'none';
+                setBowlDpadEnabled(false);
                 document.getElementById('bat-controls-container').style.display = 'block';
+                setDpadEnabled(true);
                 document.getElementById('field-controls-container').style.display = 'none';
                 statusBanner.textContent = '🟢 YOU ARE BATTING';
                 statusBanner.className = 'batting';
@@ -1450,7 +1665,9 @@
                 setTimeout(() => aiBowling(), 1200);
             } else {
                 document.getElementById('bowl-controls-container').style.display = 'block';
+                setBowlDpadEnabled(true);
                 document.getElementById('bat-controls-container').style.display = 'none';
+                setDpadEnabled(false);
                 statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
                 statusBanner.className = 'bowling';
                 gameMsg.textContent = 'Press BOWL to deliver!';
@@ -1940,7 +2157,7 @@
                 targetX: W * 0.48,
                 targetY: H * 0.72,
                 progress: 0,
-                speed: 0.007 + (speed / 100) * 0.014,
+                speed: 0.0035 + (speed / 100) * 0.007,
                 bounce: false,
                 bounceY: 0,
                 swing: 0,
@@ -2100,7 +2317,7 @@
                 targetX: W * 0.48,
                 targetY: H * 0.72,
                 progress: 0,
-                speed: 0.007 + (speed / 100) * 0.014,
+                speed: 0.0035 + (speed / 100) * 0.007,
                 bounce: false,
                 bounceY: 0,
                 swing: 0,
@@ -2162,7 +2379,9 @@
                     state.ballReady = true;
                     gameMsg.textContent = '⚡ Tap the pitch or use D‑pad to play your shot!';
                     document.getElementById('bat-controls-container').style.display = 'block';
+                    setDpadEnabled(true);
                     document.getElementById('bowl-controls-container').style.display = 'none';
+                    setBowlDpadEnabled(false);
                     drawPitch();
                     return;
                 }
@@ -2174,13 +2393,17 @@
         }
 
         // ---------- SHOT RESULT CALCULATION ----------
-        function calculateShotResult(direction, timing, isLoft, ballX, ballY) {
+        function calculateShotResult(aimX, aimY, timing, isLoft, ballX, ballY) {
             const W = canvas.width,
                 H = canvas.height;
-            let angle = 0;
-            if (direction === 'left') angle = -Math.PI / 3;
-            else if (direction === 'right') angle = Math.PI / 3;
-            else angle = 0;
+            const batX = W * 0.48,
+                batY = H * 0.6;
+
+            // Continuous angle from where the player actually aimed (drag point,
+            // tap point, or D‑pad direction) instead of a fixed 3-way bucket.
+            let angle = Math.atan2(aimX - batX, batY - aimY);
+            if (!isFinite(angle)) angle = 0;
+            angle = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, angle));
 
             const power = 180 + Math.random() * 80;
             const endX = ballX + Math.sin(angle) * power;
@@ -2201,7 +2424,10 @@
             const catchThreshold = 50;
             const isFielded = nearestDist < catchThreshold && nearestIdx >= 0;
 
-            const dropChance = 0.10;
+            // Drop chance is higher early in the innings (fielders less sharp / more
+            // pressure-free) and tightens up in the death overs: ~20% -> ~10%.
+            const oversProgress = Math.min(1, state.balls / Math.max(1, state.selectedOvers * 6));
+            const dropChance = 0.20 - oversProgress * 0.10;
             let isDrop = false;
             let isOut = false;
             let outType = '';
@@ -2244,7 +2470,7 @@
                     triggerStumpsFall();
                 }
             } else {
-                // Runs
+                // Runs — placed in a clear gap (away from the nearest fielder)
                 if (isLoft) {
                     if (timing === 'perfect') {
                         runs = (Math.random() < 0.6) ? 6 : 4;
@@ -2298,7 +2524,13 @@
             triggerBatSwing(direction);
 
             const isLoft = (Math.random() < 0.15) || (state.runs < 15 && state.balls < 10);
-            const result = calculateShotResult(direction, timing, isLoft, ball.x, ball.y);
+            const batX = canvas.width * 0.48,
+                refY = canvas.height * 0.6;
+            let aimX = batX;
+            if (direction === 'left') aimX = batX - 70;
+            else if (direction === 'right') aimX = batX + 70;
+            const aimY = refY - 40;
+            const result = calculateShotResult(aimX, aimY, timing, isLoft, ball.x, ball.y);
 
             if (result.isOut) {
                 state.wickets += 1;
@@ -2330,13 +2562,17 @@
 
             if (state.isAIBatting && !state.isMatchOver) {
                 document.getElementById('bowl-controls-container').style.display = 'block';
+                setBowlDpadEnabled(true);
                 document.getElementById('bat-controls-container').style.display = 'none';
+                setDpadEnabled(false);
                 statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
                 statusBanner.className = 'bowling';
                 gameMsg.textContent = 'Press BOWL to deliver.';
             } else if (state.isAIBowling && !state.isMatchOver) {
                 document.getElementById('bat-controls-container').style.display = 'none';
+                setDpadEnabled(false);
                 document.getElementById('bowl-controls-container').style.display = 'none';
+                setBowlDpadEnabled(false);
                 setTimeout(() => aiBowling(), 1000);
             }
         }
@@ -2346,6 +2582,9 @@
             dragStartY = 0;
         let isDragging = false;
 
+        // Touch/drag on the pitch works for BOTH roles: dragging a shot while batting,
+        // or a single tap to pick a line/length spot and deliver while bowling.
+        // Available at the same time as the D‑pads — whichever the player prefers.
         canvas.addEventListener('mousedown', startDrag);
         canvas.addEventListener('mousemove', moveDrag);
         canvas.addEventListener('mouseup', endDrag);
@@ -2376,10 +2615,39 @@
             endDrag();
         }
 
+        // Tap a spot on the pitch during your bowling turn: sets line/length from
+        // where you tapped and delivers immediately, same result as D‑pad + BOWL.
+        function bowlAtSpot(x, y) {
+            if (state.isMatchOver || state.isBallInPlay || !state.isAIBatting) return;
+            const W = canvas.width,
+                H = canvas.height;
+            const centerX = W * 0.48;
+            let line = 'middle';
+            if (x < centerX - 25) line = 'leg';
+            else if (x > centerX + 25) line = 'off';
+
+            const topY = H * 0.15,
+                botY = H * 0.68;
+            const frac = (y - topY) / (botY - topY);
+            let length = 'good';
+            if (frac < 0.38) length = 'short';
+            else if (frac > 0.68) length = 'full';
+
+            selectImpactZone(line, length);
+            document.getElementById('btn-bowl').click();
+        }
+
         function startDrag(e, canvasX, canvasY) {
             const rect = canvas.getBoundingClientRect();
             const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
             const y = canvasY !== undefined ? canvasY : (e.clientY - rect.top) / rect.height * canvas.height;
+
+            // It's the user's bowling turn: treat this tap as picking a line/length spot.
+            if (state.isAIBatting && !state.isBallInPlay) {
+                bowlAtSpot(x, y);
+                return;
+            }
+
             if (!state.ballReady || state.isMatchOver || state.isAIBatting) return;
             dragStartX = x;
             dragStartY = y;
@@ -2425,7 +2693,7 @@
         document.getElementById('dpad-right').addEventListener('click', () => tapShot('right'));
 
         document.getElementById('move-left').addEventListener('click', function() {
-            if (state.isMatchOver) return;
+            if (state.isMatchOver || state.isAIBatting) return;
             state.batsmanXOffset = Math.max(-20, state.batsmanXOffset - 4);
             const el = document.getElementById('figure-batsman');
             if (el) {
@@ -2434,7 +2702,7 @@
             gameMsg.textContent = 'Batsman moved left';
         });
         document.getElementById('move-right').addEventListener('click', function() {
-            if (state.isMatchOver) return;
+            if (state.isMatchOver || state.isAIBatting) return;
             state.batsmanXOffset = Math.min(20, state.batsmanXOffset + 4);
             const el = document.getElementById('figure-batsman');
             if (el) {
@@ -2465,7 +2733,7 @@
             updateBatTimingNeedle(timing);
 
             const isLoft = state.loftActive;
-            const result = calculateShotResult(direction, timing, isLoft, ball.x, ball.y);
+            const result = calculateShotResult(endX, endY, timing, isLoft, ball.x, ball.y);
 
             if (result.isOut) {
                 state.wickets += 1;
@@ -2501,11 +2769,15 @@
 
             if (state.isAIBowling && !state.isMatchOver) {
                 document.getElementById('bat-controls-container').style.display = 'none';
+                setDpadEnabled(false);
                 document.getElementById('bowl-controls-container').style.display = 'none';
+                setBowlDpadEnabled(false);
                 setTimeout(() => aiBowling(), 1000);
             } else if (state.isAIBatting && !state.isMatchOver) {
                 document.getElementById('bowl-controls-container').style.display = 'block';
+                setBowlDpadEnabled(true);
                 document.getElementById('bat-controls-container').style.display = 'none';
+                setDpadEnabled(false);
                 statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
                 statusBanner.className = 'bowling';
                 gameMsg.textContent = 'Press BOWL to deliver.';
@@ -2546,7 +2818,9 @@
 
                 if (state.isAIBowling) {
                     document.getElementById('bowl-controls-container').style.display = 'none';
+                    setBowlDpadEnabled(false);
                     document.getElementById('bat-controls-container').style.display = 'block';
+                    setDpadEnabled(true);
                     document.getElementById('field-controls-container').style.display = 'none';
                     statusBanner.textContent = '🟢 YOU ARE BATTING';
                     statusBanner.className = 'batting';
@@ -2554,7 +2828,9 @@
                     setTimeout(() => aiBowling(), 1500);
                 } else {
                     document.getElementById('bowl-controls-container').style.display = 'block';
+                    setBowlDpadEnabled(true);
                     document.getElementById('bat-controls-container').style.display = 'none';
+                    setDpadEnabled(false);
                     updateFieldControlsVisibility();
                     statusBanner.textContent = '🔴 YOU ARE BOWLING';
                     statusBanner.className = 'bowling';
@@ -2692,12 +2968,18 @@
 
         document.querySelectorAll('.impact-zone').forEach(zone => {
             zone.addEventListener('click', function() {
-                document.querySelectorAll('.impact-zone').forEach(z => z.classList.remove('selected'));
-                this.classList.add('selected');
-                state.impactLine = this.dataset.line;
-                state.impactLength = this.dataset.length;
+                selectImpactZone(this.dataset.line, this.dataset.length);
             });
         });
+
+        // Fixed bowling D-pad: line/length + bowl trigger, mirrors the batting D-pad
+        document.getElementById('bowl-dpad-full').addEventListener('click', () => selectImpactZone(state.impactLine || 'middle', 'full'));
+        document.getElementById('bowl-dpad-good').addEventListener('click', () => selectImpactZone(state.impactLine || 'middle', 'good'));
+        document.getElementById('bowl-dpad-short').addEventListener('click', () => selectImpactZone(state.impactLine || 'middle', 'short'));
+        document.getElementById('bowl-dpad-leg').addEventListener('click', () => selectImpactZone('leg', state.impactLength || 'good'));
+        document.getElementById('bowl-dpad-middle').addEventListener('click', () => selectImpactZone('middle', state.impactLength || 'good'));
+        document.getElementById('bowl-dpad-off').addEventListener('click', () => selectImpactZone('off', state.impactLength || 'good'));
+        document.getElementById('bowl-dpad-go').addEventListener('click', () => document.getElementById('btn-bowl').click());
 
         document.getElementById('btn-auto-bowl').addEventListener('click', function() {
             if (state.isMatchOver) return;
@@ -2735,6 +3017,8 @@
         state.bowlType = 'fast';
         state.impactLine = 'middle';
         state.impactLength = 'good';
+        setDpadEnabled(false);
+        setBowlDpadEnabled(false);
         animate();
         gameMsg.textContent = 'Select your team and start.';
         console.log('Game loaded successfully!');
