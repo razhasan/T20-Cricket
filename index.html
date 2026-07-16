@@ -906,7 +906,7 @@
 
     <script>
         // ================================================================
-        //  COMPLETE CRICKET GAME – FIXED WIN/LOSS LOGIC + REALISTIC DISMISSALS
+        //  COMPLETE CRICKET GAME – FIXED FLAG SELECTION
         // ================================================================
 
         // ---------- PLAYER DATA ----------
@@ -1199,7 +1199,6 @@
             stumpsFallAnim: null,
             userTeam: null,
             batsmanXOffset: 0,
-            // For result tracking
             innings1Team: null,
             innings2Team: null,
         };
@@ -1233,21 +1232,19 @@
 
         function random(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
-        function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
-
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             $(id).classList.add('active');
         }
 
-        // ---------- MENU ----------
+        // ---------- MENU (FLAG SELECTION) ----------
         let selectedTeamFlag = null;
         document.querySelectorAll('.flag-card').forEach(card => {
             card.addEventListener('click', function() {
                 document.querySelectorAll('.flag-card').forEach(c => c.classList.remove('selected'));
                 this.classList.add('selected');
                 selectedTeamFlag = this.dataset.team;
-                $('btn-select-team').disabled = false;
+                document.getElementById('btn-select-team').disabled = false;
             });
         });
 
@@ -1259,7 +1256,7 @@
             });
         });
 
-        $('btn-select-team').addEventListener('click', function() {
+        document.getElementById('btn-select-team').addEventListener('click', function() {
             if (!selectedTeamFlag) return;
             state.selectedTeam = selectedTeamFlag;
             state.allPlayers = PLAYERS[selectedTeamFlag].map(p => ({ ...p, selected: false }));
@@ -1305,12 +1302,12 @@
 
         function updatePickCount() {
             pickCount.textContent = `Selected: ${state.playingXI.length} / 11`;
-            $('btn-start-game').disabled = state.playingXI.length !== 11;
+            document.getElementById('btn-start-game').disabled = state.playingXI.length !== 11;
         }
 
-        $('btn-back-menu').addEventListener('click', () => showScreen('menu-screen'));
+        document.getElementById('btn-back-menu').addEventListener('click', () => showScreen('menu-screen'));
 
-        $('btn-auto-xi').addEventListener('click', function() {
+        document.getElementById('btn-auto-xi').addEventListener('click', function() {
             state.allPlayers.forEach(p => p.selected = false);
             state.playingXI = [];
             const byRole = role => state.allPlayers.filter(p => p.role === role);
@@ -1334,7 +1331,7 @@
             gameMsg.textContent = '🎲 Auto-selected XI!';
         });
 
-        $('btn-start-game').addEventListener('click', function() {
+        document.getElementById('btn-start-game').addEventListener('click', function() {
             if (state.playingXI.length !== 11) return;
             state.playingXI = shuffleArray(state.playingXI);
             showTossScreen();
@@ -1342,11 +1339,11 @@
 
         // ---------- TOSS ----------
         function showTossScreen() {
-            $('toss-result-text').textContent = 'Choose Heads or Tails';
-            $('coin-emoji').textContent = '🪙';
-            $('toss-decision-area').style.display = 'none';
-            $('toss-ai-decision').style.display = 'none';
-            $('toss-proceed').style.display = 'none';
+            document.getElementById('toss-result-text').textContent = 'Choose Heads or Tails';
+            document.getElementById('coin-emoji').textContent = '🪙';
+            document.getElementById('toss-decision-area').style.display = 'none';
+            document.getElementById('toss-ai-decision').style.display = 'none';
+            document.getElementById('toss-proceed').style.display = 'none';
             document.querySelectorAll('.toss-options .btn').forEach(b => b.disabled = false);
             showScreen('toss-screen');
             state.userTossCall = null;
@@ -1354,13 +1351,13 @@
             state.userChoice = null;
         }
 
-        $('toss-heads').addEventListener('click', function() { handleToss('heads'); });
-        $('toss-tails').addEventListener('click', function() { handleToss('tails'); });
+        document.getElementById('toss-heads').addEventListener('click', function() { handleToss('heads'); });
+        document.getElementById('toss-tails').addEventListener('click', function() { handleToss('tails'); });
 
         function handleToss(call) {
             state.userTossCall = call;
             document.querySelectorAll('.toss-options .btn').forEach(b => b.disabled = true);
-            const coin = $('coin-emoji');
+            const coin = document.getElementById('coin-emoji');
             coin.classList.remove('flip');
             void coin.offsetWidth;
             coin.classList.add('flip');
@@ -1389,20 +1386,20 @@
             }, 700);
         }
 
-        $('toss-bat').addEventListener('click', function() {
+        document.getElementById('toss-bat').addEventListener('click', function() {
             state.userChoice = 'bat';
             document.getElementById('toss-decision-area').style.display = 'none';
             document.getElementById('toss-proceed').style.display = 'block';
             document.getElementById('toss-result-text').textContent = 'You chose to bat first!';
         });
-        $('toss-bowl').addEventListener('click', function() {
+        document.getElementById('toss-bowl').addEventListener('click', function() {
             state.userChoice = 'bowl';
             document.getElementById('toss-decision-area').style.display = 'none';
             document.getElementById('toss-proceed').style.display = 'block';
             document.getElementById('toss-result-text').textContent = 'You chose to bowl first!';
         });
 
-        $('toss-proceed').addEventListener('click', function() {
+        document.getElementById('toss-proceed').addEventListener('click', function() {
             const userBatsFirst = (state.userChoice === 'bat');
             const userTeam = state.selectedTeam;
             const oppTeam = userTeam === 'india' ? 'pakistan' : 'india';
@@ -1460,7 +1457,7 @@
             }
         });
 
-        $('toss-back-menu').addEventListener('click', () => showScreen('menu-screen'));
+        document.getElementById('toss-back-menu').addEventListener('click', () => showScreen('menu-screen'));
 
         // ---------- BOWLER SELECTION ----------
         function selectBowlers() {
@@ -2176,7 +2173,7 @@
             updateScoreboard();
         }
 
-        // ---------- SHOT RESULT CALCULATION (with realistic dismissals) ----------
+        // ---------- SHOT RESULT CALCULATION ----------
         function calculateShotResult(direction, timing, isLoft, ballX, ballY) {
             const W = canvas.width,
                 H = canvas.height;
@@ -2210,11 +2207,10 @@
             let outType = '';
             let runs = 0;
 
-            // Check for Bowled/LBW if impact is near stumps
+            // Bowled/LBW if impact near stumps and timing poor
             const isNearStumps = (state.impactLine === 'middle' || state.impactLine === 'leg') &&
                 (state.impactLength === 'good' || state.impactLength === 'full');
 
-            // If timing is early/late and near stumps, high chance of bowled/LBW
             if (isNearStumps && (timing === 'early' || timing === 'late') && !isLoft) {
                 const bowledChance = 0.25;
                 if (Math.random() < bowledChance) {
@@ -2228,7 +2224,7 @@
                 }
             }
 
-            // Check catch
+            // Catch
             const loftBonus = isLoft ? 1.4 : 1.0;
             const effectiveDist = nearestDist / loftBonus;
 
@@ -2248,7 +2244,7 @@
                     triggerStumpsFall();
                 }
             } else {
-                // Not caught – calculate runs
+                // Runs
                 if (isLoft) {
                     if (timing === 'perfect') {
                         runs = (Math.random() < 0.6) ? 6 : 4;
@@ -2380,17 +2376,10 @@
             endDrag();
         }
 
-        function isFieldPlacementActive() {
-            return state.fieldMode === 'manual' && state.isAIBatting === true && !state.ballReady && !state.isBallInPlay;
-        }
-
         function startDrag(e, canvasX, canvasY) {
             const rect = canvas.getBoundingClientRect();
             const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
             const y = canvasY !== undefined ? canvasY : (e.clientY - rect.top) / rect.height * canvas.height;
-            if (isFieldPlacementActive()) {
-                return;
-            }
             if (!state.ballReady || state.isMatchOver || state.isAIBatting) return;
             dragStartX = x;
             dragStartY = y;
@@ -2523,18 +2512,14 @@
             }
         }
 
-        // ---------- END INNINGS (FIXED WIN/LOSS LOGIC) ----------
+        // ---------- END INNINGS ----------
         function endInnings() {
             if (state.currentInnings === 1) {
-                // Innings 1 complete – set target
                 state.innings1 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.target = state.runs + 1;
                 state.currentInnings = 2;
-
-                // Store which team batted first
                 state.innings1Team = state.battingTeam;
 
-                // Swap teams
                 const temp = state.battingTeam;
                 state.battingTeam = state.bowlingTeam;
                 state.bowlingTeam = temp;
@@ -2576,7 +2561,6 @@
                     gameMsg.textContent = 'Press BOWL to deliver.';
                 }
             } else {
-                // Innings 2 complete – determine winner
                 state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.innings2Team = state.battingTeam;
 
@@ -2586,12 +2570,8 @@
                 const runs2 = state.innings2.runs;
                 const wickets2 = state.innings2.wickets;
 
-                let winner = null;
                 let winMessage = '';
-
                 if (runs2 > runs1) {
-                    // Team 2 (chasing) wins
-                    winner = team2;
                     const wicketsRemaining = 10 - wickets2;
                     if (wicketsRemaining > 0) {
                         winMessage = `${team2.toUpperCase()} won by ${wicketsRemaining} wicket${wicketsRemaining>1?'s':''}!`;
@@ -2599,19 +2579,14 @@
                         winMessage = `${team2.toUpperCase()} won by ${runs2 - runs1} runs!`;
                     }
                 } else if (runs2 === runs1) {
-                    // Tie
                     winMessage = `Match Tied!`;
-                    winner = null;
                 } else {
-                    // Team 1 wins
-                    winner = team1;
                     const runsShort = runs1 - runs2;
                     winMessage = `${team1.toUpperCase()} won by ${runsShort} run${runsShort>1?'s':''}!`;
                 }
 
                 document.getElementById('winner-text').textContent = winMessage;
 
-                // MOTM
                 const motm = state.playingXI[0] || { name: 'Player' };
                 state.motm = motm.name;
                 document.getElementById('motm-name').textContent = motm.name;
@@ -2630,13 +2605,10 @@
             }
         }
 
-        // ---------- END MATCH (legacy, kept for safety) ----------
+        // ---------- END MATCH (fallback) ----------
         function endMatch(winner) {
-            // This should not be called directly anymore; endInnings handles everything
-            // But keep as fallback
             if (state.isMatchOver) return;
             state.isMatchOver = true;
-            // Determine winner message
             const userTeam = state.selectedTeam;
             const isUserWin = winner === userTeam;
             const winMsg = isUserWin ? `🎉 ${userTeam.toUpperCase()} WINS! 🎉` : `😞 ${userTeam.toUpperCase()} Loses!`;
@@ -2748,6 +2720,7 @@
         state.impactLength = 'good';
         animate();
         gameMsg.textContent = 'Select your team and start.';
+        console.log('Game loaded successfully!');
     </script>
 </body>
 </html>
