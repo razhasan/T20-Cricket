@@ -1728,8 +1728,7 @@
         function unlockAudioOnce() {
             SoundFX.init();
             SoundFX.resume();
-            const welcomeScreen = document.getElementById('welcome-screen');
-            if (welcomeScreen && welcomeScreen.classList.contains('active')) {
+            if (!state.matchStarted) {
                 SoundFX.startWelcomeMusic();
             }
         }
@@ -1747,11 +1746,8 @@
                 const nowMuted = !SoundFX.isMuted();
                 SoundFX.setMuted(nowMuted);
                 btn.textContent = nowMuted ? '🔇' : '🔊';
-                if (!nowMuted) {
-                    const welcomeScreen = document.getElementById('welcome-screen');
-                    if (welcomeScreen && welcomeScreen.classList.contains('active')) {
-                        SoundFX.startWelcomeMusic();
-                    }
+                if (!nowMuted && !state.matchStarted) {
+                    SoundFX.startWelcomeMusic();
                 }
             });
             document.getElementById('app').appendChild(btn);
@@ -1759,7 +1755,6 @@
         // ================= END SOUND FX =================
 
         document.getElementById('btn-welcome-continue').addEventListener('click', () => {
-            SoundFX.stopWelcomeMusic();
             showScreen('menu-screen');
         });
         document.getElementById('info-bubble').addEventListener('click', () => {
@@ -1808,6 +1803,7 @@
             shotPlayed: false,
             ballReady: false,
             fielderPositions: null,
+            matchStarted: false,
             fieldMode: 'auto',
             fieldSetForOver: false,
             powerplayOvers: 0,
@@ -2496,6 +2492,33 @@
             return { x: pt.x, y: pt.y };
         }
 
+        // The pitch strip (the tan rectangle down the middle of the ground) is
+        // drawn at x: 0.4W-0.6W. Fielders must never stand on top of it or be
+        // rendered underneath it — real fielders always stand beside the
+        // pitch, not on it. This pushes a point sideways, off the strip
+        // (plus a small visible gap), keeping it on whichever side it was
+        // already closest to.
+        function pushOffPitchStrip(x, y) {
+            const W = canvas.width;
+            const margin = W * 0.045;
+            const stripMinX = W * 0.4 - margin;
+            const stripMaxX = W * 0.6 + margin;
+            if (x > stripMinX && x < stripMaxX) {
+                const cx = W * 0.5;
+                x = (x < cx) ? stripMinX : stripMaxX;
+            }
+            return { x, y };
+        }
+
+        // Combines both constraints: keep the fielder inside the ground rope
+        // AND clear of the pitch strip, in either order of violation.
+        function resolveFielderPoint(x, y) {
+            let p = clampToGround(x, y);
+            p = pushOffPitchStrip(p.x, p.y);
+            p = clampToGround(p.x, p.y);
+            return p;
+        }
+
         function isOutsideCircle(f) {
             const W = canvas.width,
                 H = canvas.height;
@@ -2534,7 +2557,7 @@
                     x: cx + Math.cos(rad) * W * rFrac,
                     y: cy + Math.sin(rad) * H * rFrac * 0.96
                 };
-                return clampToGround(p.x, p.y);
+                return resolveFielderPoint(p.x, p.y);
             });
             // Make sure the default layout itself never breaks the current
             // outside-the-circle limit (e.g. 2 during Power Play).
@@ -2559,8 +2582,9 @@
                     outsideCount++;
                     if (outsideCount > maxOutside) {
                         const scale = (innerR * 0.85) / dist;
-                        f.x = cx + dx * scale;
-                        f.y = cy + dy * scale;
+                        const pulled = resolveFielderPoint(cx + dx * scale, cy + dy * scale);
+                        f.x = pulled.x;
+                        f.y = pulled.y;
                     }
                 }
             });
@@ -2600,7 +2624,7 @@
                 }
                 const x = cx + Math.cos(angle) * r;
                 const y = cy + Math.sin(angle) * r * 0.96;
-                positions.push(clampToGround(x, y));
+                positions.push(resolveFielderPoint(x, y));
             }
             state.fielderPositions = positions;
         }
@@ -2698,8 +2722,6 @@
             ctx.stroke();
             ctx.restore();
 
-            drawFielders();
-
             ctx.fillStyle = '#c8a86a';
             ctx.fillRect(W * 0.4, H * 0.06, W * 0.2, H * 0.86);
             ctx.fillStyle = '#d4b479';
@@ -2745,6 +2767,11 @@
             ctx.fillStyle = '#d32f2f';
             ctx.fillRect(stumpX - 2, stumpY + 20, 19, 3);
             ctx.restore();
+
+            // Fielders are drawn after the pitch strip/stumps so they always
+            // render on top and stay fully visible, even at the edge of the
+            // pitch — never hidden behind or underneath it.
+            drawFielders();
 
             if (state.ball) {
                 drawBall(state.ball);
@@ -2980,6 +3007,10 @@
 
         function deliverBallUser(isNoBall, speed) {
             if (state.isMatchOver) return;
+            if (!state.matchStarted) {
+                state.matchStarted = true;
+                SoundFX.stopWelcomeMusic();
+            }
             runBowlerRunUp();
 
             const wideLines = ['leg', 'off'];
@@ -3126,6 +3157,10 @@
         // ---------- AI BOWLING ----------
         function aiBowling() {
             if (state.isMatchOver || !state.isAIBowling) return;
+            if (!state.matchStarted) {
+                state.matchStarted = true;
+                SoundFX.stopWelcomeMusic();
+            }
             runBowlerRunUp();
 
             const types = ['fast', 'spin'];
@@ -3692,8 +3727,9 @@
             const cx = W * 0.5,
                 cy = H * 0.5;
 
-            // Always keep the fielder inside the ground boundary rope.
-            const pos = clampToGround(x, y);
+            // Always keep the fielder inside the ground boundary rope AND
+            // clear of the pitch strip (never on it or hidden behind it).
+            const pos = resolveFielderPoint(x, y);
             const dx = pos.x - cx,
                 dy = pos.y - cy;
             const dist = Math.hypot(dx, dy);
@@ -3711,7 +3747,8 @@
                         (isInPowerplay() ? ' during Power Play!' : ' after Power Play!')
                     );
                     const scale = (innerR * 0.94) / (dist || 1);
-                    state.fielderPositions[draggedFielderIndex] = { x: cx + dx * scale, y: cy + dy * scale };
+                    const pulled = resolveFielderPoint(cx + dx * scale, cy + dy * scale);
+                    state.fielderPositions[draggedFielderIndex] = pulled;
                     drawPitch();
                     return;
                 }
