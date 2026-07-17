@@ -628,21 +628,28 @@
             flex-wrap: wrap;
         }
         .loft-btn {
+            position: fixed;
+            top: max(64px, 9%);
+            right: max(6px, calc(50vw - 250px + 6px));
             background: #ff5722;
             color: #fff;
-            border: none;
+            border: 2px solid #ff572266;
             border-radius: 30px;
-            padding: 8px 16px;
+            padding: 10px 18px;
             font-weight: bold;
             font-size: 0.9rem;
             cursor: pointer;
             transition: 0.15s;
             box-shadow: 0 0 12px #ff572266;
+            z-index: 45;
+            touch-action: manipulation;
         }
         .loft-btn.active {
             background: #ffeb3b;
             color: #1a2e3f;
+            border-color: #ffeb3b;
             box-shadow: 0 0 30px #ffeb3b88;
+            transform: scale(1.05);
         }
         .timing-indicator {
             font-size: 0.8rem;
@@ -743,6 +750,57 @@
             display: flex;
             justify-content: space-between;
             padding: 2px 0;
+        }
+        .scorecard {
+            background: #0f1f2b;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: left;
+            font-size: 0.8rem;
+        }
+        .scorecard-innings + .scorecard-innings {
+            margin-top: 14px;
+        }
+        .scorecard-innings-title {
+            font-weight: bold;
+            color: #f5c842;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #2a4055;
+            padding-bottom: 4px;
+        }
+        .scorecard-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .scorecard-table th {
+            text-align: left;
+            color: #aaa;
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 3px 4px;
+        }
+        .scorecard-table th:not(:first-child),
+        .scorecard-table td:not(:first-child) {
+            text-align: right;
+        }
+        .scorecard-table td {
+            padding: 3px 4px;
+            border-top: 1px solid #1a2e3f;
+        }
+        .scorecard-table td.player-out {
+            color: #eee;
+        }
+        .scorecard-table td.player-notout {
+            color: #4caf50;
+            font-weight: 600;
+        }
+        .scorecard-section-label {
+            font-size: 0.65rem;
+            color: #777;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 8px 0 2px;
         }
 
         .player-grid::-webkit-scrollbar {
@@ -1010,9 +1068,9 @@
 
             <!-- Batting Controls -->
             <div id="bat-controls-container" style="display:none;">
+                <button class="loft-btn" id="loft-btn">🏏 LOFT</button>
                 <div class="bat-controls">
-                    <button class="loft-btn" id="loft-btn">🏏 LOFT</button>
-                    <span style="font-size:0.7rem;color:#aaa;margin-left:8px;">Drag on the pitch or use the D‑pad (right) — anytime during the ball's flight</span>
+                    <span style="font-size:0.7rem;color:#aaa;">Drag on the pitch or use the D‑pad (right) — anytime during the ball's flight. LOFT (top right) can be toggled on/off anytime, even before the bowler runs in.</span>
                 </div>
                 <div class="bat-timing-meter">
                     <div class="timing-track">
@@ -1046,6 +1104,7 @@
                 <div><span>India</span><span>150/4 (5.0)</span></div>
                 <div><span>Pakistan</span><span>120/6 (5.0)</span></div>
             </div>
+            <div class="scorecard" id="full-scorecard"></div>
             <button class="btn" id="btn-play-again">🔄 Play Again</button>
         </div>
 
@@ -1464,6 +1523,58 @@
             return Object.values(merged).sort((a, b) =>
                 (b.runs + b.wickets * 25) - (a.runs + a.wickets * 25)
             )[0];
+        }
+
+        // Full batting/bowling scorecard shown on the result screen.
+        function renderFullScorecard() {
+            const el = document.getElementById('full-scorecard');
+            if (!el) return;
+
+            function renderInnings(teamName, snapshot, battingOrder, bowlingOrder) {
+                if (!teamName || !snapshot || !battingOrder) return '';
+                const wickets = snapshot.wickets || 0;
+                const battedCount = Math.min(wickets + 1, battingOrder.length);
+                const batted = battingOrder.slice(0, battedCount);
+                const oversStr = Math.floor((snapshot.balls || 0) / 6) + '.' + ((snapshot.balls || 0) % 6);
+
+                let battingRows = batted.map(b => {
+                    const statusClass = b.isOut ? 'player-out' : 'player-notout';
+                    const statusText = b.isOut ? '' : ' (not out)';
+                    return `<tr><td class="${statusClass}">${b.name}${statusText}</td><td>${b.runs}</td></tr>`;
+                }).join('');
+                if (!battingRows) {
+                    battingRows = `<tr><td colspan="2" style="color:#777;">No batting data</td></tr>`;
+                }
+
+                const bowlersUsed = (bowlingOrder || []).filter(bw => (bw.ballsBowled || 0) > 0);
+                let bowlingRows = bowlersUsed.map(bw => {
+                    const oversB = Math.floor((bw.ballsBowled || 0) / 6) + '.' + ((bw.ballsBowled || 0) % 6);
+                    return `<tr><td>${bw.name}</td><td>${oversB}</td><td>${bw.runsConceded || 0}</td><td>${bw.wickets || 0}</td></tr>`;
+                }).join('');
+                if (!bowlingRows) {
+                    bowlingRows = `<tr><td colspan="4" style="color:#777;">No bowling data</td></tr>`;
+                }
+
+                return `
+                    <div class="scorecard-innings">
+                        <div class="scorecard-innings-title">${teamName.toUpperCase()} — ${snapshot.runs || 0}/${wickets} (${oversStr} ov)</div>
+                        <div class="scorecard-section-label">Batting</div>
+                        <table class="scorecard-table">
+                            <tr><th>Batter</th><th>R</th></tr>
+                            ${battingRows}
+                        </table>
+                        <div class="scorecard-section-label">Bowling</div>
+                        <table class="scorecard-table">
+                            <tr><th>Bowler</th><th>O</th><th>R</th><th>W</th></tr>
+                            ${bowlingRows}
+                        </table>
+                    </div>
+                `;
+            }
+
+            el.innerHTML =
+                renderInnings(state.innings1Team, state.innings1, state.innings1BattingOrder, state.innings1BowlingOrder) +
+                renderInnings(state.innings2Team, state.innings2, state.innings2BattingOrder, state.innings2BowlingOrder);
         }
 
         function applyMotm(winningTeam) {
@@ -3127,6 +3238,7 @@
                 state.innings2BattingOrder = state.battingOrder;
                 state.innings2BowlingOrder = state.bowlingOrder;
                 applyMotm(winningTeam);
+                renderFullScorecard();
 
                 const s1 = state.innings1,
                     s2 = state.innings2;
@@ -3177,6 +3289,7 @@
                 state.innings2BowlingOrder = state.bowlingOrder;
             }
             applyMotm(winner);
+            renderFullScorecard();
 
             const overs1 = Math.floor(s1.balls / 6) + '.' + (s1.balls % 6);
             const overs2 = Math.floor(s2.balls / 6) + '.' + (s2.balls % 6);
