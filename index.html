@@ -1536,7 +1536,7 @@
                 <li>Toggle <b>LOFT</b> for a chance at a big hit — higher reward, but a fielder can catch you out if it's not timed well.</li>
                 <li>Timing matters: committing early, on time, or late changes whether you get EARLY / PERFECT / LATE timing.</li>
                 <li>Aim for the gaps between fielders for boundaries; hitting straight at a fielder risks being caught. Fielders hold onto the large majority of chances, just like real cricket — drops are a rare, low-probability event that gets even rarer late in the innings.</li>
-                <li>When you're bowling, you can deliver the ball right away with the current field, or tap <b>Manual</b> to drag fielders anywhere inside the ground, or tap <b>Auto Field</b> for a fresh randomized legal field. The field locks in automatically a few seconds after your last adjustment, or the moment you bowl — whichever comes first — and then stays fixed for the rest of that over. Only 2 fielders may be outside the inner circle during Power Play, and only 4 afterward — the game blocks and warns you if you try to break this rule.</li>
+                <li>When you're bowling, you can deliver the ball right away with the current field, or tap <b>Manual</b> to drag fielders anywhere inside the ground, or tap <b>Auto Field</b> for a fresh randomized legal field. You can readjust the field freely before every single ball — it only locks for the moment a delivery is actually in flight, then reopens for adjustment as soon as that ball is done. Only 2 fielders may be outside the inner circle during Power Play, and only 4 afterward — the game blocks and warns you if you try to break this rule.</li>
                 <li>No need to press a separate "confirm field" button — just adjust the field if you want to, then bowl whenever you're ready.</li>
             </ul>
             <h4>⚡ Bowling</h4>
@@ -2885,16 +2885,12 @@
         }
 
         // Call this whenever a fresh over is about to start for the user's
-        // bowling team. The field defaults to whatever is currently set
-        // (legal by construction) and bowling is available right away — the
-        // player can deliver immediately, or tap Automatic/Manual to adjust
-        // the field first. Once they either start bowling or stop touching
-        // the field for a few seconds, it locks for the rest of the over.
+        // bowling team. Also used to re-open field adjustment after each
+        // ball is resolved (see reopenFieldForNextBall below).
         function beginUserBowlingOver() {
             updateFieldControlsVisibility();
             if (!state.isAIBatting) return;
 
-            clearFieldAutoLockTimer();
             state.fieldSetForOver = false;
             state.fieldMode = 'auto'; // default field, no mode chosen yet
             document.getElementById('field-auto-btn').classList.remove('active');
@@ -2904,18 +2900,27 @@
 
             const overNum = Math.floor(state.balls / 6) + 1;
             document.getElementById('field-setup-message').textContent =
-                `📋 Field for Over ${overNum} — adjust it now, or just bowl to keep it as-is`;
+                `📋 Field for Over ${overNum} — adjust it whenever you like, then press BOWL`;
             document.getElementById('field-setup-pp-note').textContent = isInPowerplay() ?
                 `🟡 Power Play in effect — max 2 fielders outside the circle` :
                 `Max 4 fielders outside the circle`;
 
-            // Both panels are visible together now — the player can bowl
+            // Both panels are visible together — the player can bowl
             // straight away, or adjust the field first; either is fine.
             document.getElementById('field-controls-container').style.display = 'block';
             document.getElementById('bowl-controls-container').style.display = 'block';
             setBowlDpadEnabled(true);
-            gameMsg.textContent = 'Ready to bowl — adjust the field (Automatic/Manual) if you like, or just press BOWL.';
+            gameMsg.textContent = 'Adjust the field (Automatic/Manual) whenever you like, then press BOWL.';
             drawPitch();
+        }
+
+        // Re-opens field adjustment between balls, within the same over —
+        // the field can be changed freely before every delivery, not just
+        // once per over. Keeps whatever Auto/Manual mode was last chosen.
+        function reopenFieldForNextBall() {
+            if (!state.isAIBatting || state.isMatchOver) return;
+            state.fieldSetForOver = false;
+            document.getElementById('field-controls-container').style.display = 'block';
         }
 
         function updateFieldControlsVisibility() {
@@ -2925,38 +2930,15 @@
             el.style.display = (userIsBowling && !state.fieldSetForOver) ? 'block' : 'none';
         }
 
-        // ---- Field auto-lock: after the player edits the field (auto
-        // shuffle, choosing manual, or dragging a fielder), give them a
-        // short window to keep adjusting before it locks automatically.
-        // Starting to bowl locks it immediately regardless of this timer.
-        let fieldAutoLockTimer = null;
-        const FIELD_AUTO_LOCK_DELAY_MS = 3000;
-
-        function clearFieldAutoLockTimer() {
-            if (fieldAutoLockTimer) {
-                clearTimeout(fieldAutoLockTimer);
-                fieldAutoLockTimer = null;
-            }
-        }
-
-        function scheduleFieldAutoLock() {
-            clearFieldAutoLockTimer();
-            if (state.fieldSetForOver) return;
-            fieldAutoLockTimer = setTimeout(() => {
-                fieldAutoLockTimer = null;
-                if (!state.fieldSetForOver) lockFieldForOver();
-            }, FIELD_AUTO_LOCK_DELAY_MS);
-        }
-
+        // Locks the field only for the delivery about to happen — fielders
+        // can't teleport once the ball is on its way. It reopens again as
+        // soon as this ball is resolved (see reopenFieldForNextBall).
         function lockFieldForOver() {
-            clearFieldAutoLockTimer();
             if (state.fieldSetForOver) return;
             state.fieldSetForOver = true;
             document.getElementById('field-controls-container').style.display = 'none';
             document.getElementById('bowl-controls-container').style.display = 'block';
             setBowlDpadEnabled(true);
-            const overNum = Math.floor(state.balls / 6) + 1;
-            gameMsg.textContent = `✅ Field locked for Over ${overNum}! Tap the pitch, use the D‑pad, or press BOWL to deliver.`;
             drawPitch();
         }
 
@@ -2968,13 +2950,11 @@
             document.getElementById('field-shuffle-btn').style.display = 'inline-block';
             document.getElementById('field-go-btn').style.display = 'none';
             const maxOutside = getMaxFieldersOutside();
-            gameMsg.textContent = `Auto field set (max ${maxOutside} outside the circle${isInPowerplay() ? ' — Power Play' : ''}). Shuffle again, or it locks in a few seconds.`;
-            scheduleFieldAutoLock();
+            gameMsg.textContent = `Auto field set (max ${maxOutside} outside the circle${isInPowerplay() ? ' — Power Play' : ''}). Shuffle again, or press BOWL when ready.`;
             drawPitch();
         });
         document.getElementById('field-shuffle-btn').addEventListener('click', function() {
             randomizeFieldPositions();
-            scheduleFieldAutoLock();
             drawPitch();
         });
         document.getElementById('field-manual-btn').addEventListener('click', function() {
@@ -2984,8 +2964,7 @@
             document.getElementById('field-shuffle-btn').style.display = 'none';
             document.getElementById('field-go-btn').style.display = 'none';
             const maxOutside = getMaxFieldersOutside();
-            gameMsg.textContent = `Drag a fielder to reposition them (max ${maxOutside} outside the circle${isInPowerplay() ? ' during Power Play' : ''}). It locks a few seconds after you stop.`;
-            scheduleFieldAutoLock();
+            gameMsg.textContent = `Drag a fielder to reposition them (max ${maxOutside} outside the circle${isInPowerplay() ? ' during Power Play' : ''}). Press BOWL when ready.`;
             drawPitch();
         });
         document.getElementById('field-go-btn').addEventListener('click', function() {
@@ -3038,9 +3017,9 @@
                 return;
             }
             if (!state.fieldSetForOver) {
-                // First delivery of the over — whatever field is currently
-                // set (default, or whatever the player last adjusted it to)
-                // is now locked in for the rest of the over.
+                // Lock in whatever field is currently set (default, or
+                // whatever the player last adjusted it to) for this one
+                // delivery. It reopens for adjustment once this ball is done.
                 lockFieldForOver();
             }
 
@@ -3074,6 +3053,7 @@
                 gameMsg.textContent = 'WIDE! 1 extra run. Re-bowled.';
                 updateScoreboard();
                 drawPitch();
+                reopenFieldForNextBall();
                 setTimeout(() => {
                     if (!state.isMatchOver && state.isAIBatting && !state.isBallInPlay) {
                         document.getElementById('needle-no-ball-text').textContent = 'Press BOWL to deliver.';
@@ -3615,13 +3595,14 @@
                 setTimeout(() => aiBowling(), 1000);
             } else if (state.isAIBatting && !state.isMatchOver) {
                 // AI is batting; hand control back to the user for bowling.
+                reopenFieldForNextBall();
                 document.getElementById('bowl-controls-container').style.display = 'block';
                 setBowlDpadEnabled(true);
                 document.getElementById('bat-controls-container').style.display = 'none';
                 setDpadEnabled(false);
                 statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
                 statusBanner.className = 'bowling';
-                gameMsg.textContent = 'Press BOWL to deliver.';
+                gameMsg.textContent = 'Adjust the field if you like, then press BOWL to deliver.';
             }
         }
 
@@ -3864,7 +3845,6 @@
             if (isDraggingFielder) {
                 isDraggingFielder = false;
                 draggedFielderIndex = -1;
-                scheduleFieldAutoLock();
                 return;
             }
             clearDragIndicator();
