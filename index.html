@@ -2518,9 +2518,11 @@
             const fastVars = ['normal', 'swing-in', 'swing-out', 'reverse', 'leg-cutter', 'off-cutter'];
             const spinVars = ['normal', 'googly', 'doosra', 'carrom'];
             state.variation = random(state.bowlType === 'fast' ? fastVars : spinVars);
-            const lines = ['leg', 'middle', 'off'];
+            // Weighted towards middle so the AI bowls on a good line most of the
+            // time — a real bowler rarely strays wide of off/leg.
+            const lineRoll = Math.random();
+            state.impactLine = lineRoll < 0.28 ? 'leg' : (lineRoll < 0.72 ? 'middle' : 'off');
             const lengths = ['full', 'good', 'short'];
-            state.impactLine = random(lines);
             state.impactLength = random(lengths);
             const speed = 20 + Math.random() * 60;
             const isNoBall = Math.random() < 0.07;
@@ -2534,11 +2536,12 @@
                 return;
             }
 
-            const wideLines = ['leg', 'off'];
-            let isWide = false;
-            if (wideLines.includes(state.impactLine) && !isNoBall) {
-                isWide = true;
-            }
+            // Wide is now a rare, independent event (not automatic just because
+            // the line is leg/off) — a few strayed-down-leg deliveries per match,
+            // not two out of every three balls.
+            let wideChance = 0.03;
+            if (state.impactLine === 'leg' || state.impactLine === 'off') wideChance += 0.05;
+            const isWide = Math.random() < wideChance;
             if (isWide) {
                 state.runs += 1;
                 gameMsg.textContent = 'WIDE! 1 extra run. Re-bowled.';
