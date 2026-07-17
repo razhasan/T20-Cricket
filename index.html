@@ -432,6 +432,33 @@
         .figure-bowler.delivering {
             transform: translate(-50%, -4%) rotate(-8deg) scale(1.04);
         }
+        .figure-bowler.celebrating {
+            animation: bowlerCelebrate 2.4s ease-in-out;
+        }
+        @keyframes bowlerCelebrate {
+            0% { transform: translate(-50%, -8%) rotate(0deg) scale(1); }
+            15% { transform: translate(-50%, -32%) rotate(-12deg) scale(1.18); }
+            30% { transform: translate(-50%, -8%) rotate(10deg) scale(1.05); }
+            45% { transform: translate(-50%, -28%) rotate(-9deg) scale(1.14); }
+            60% { transform: translate(-50%, -8%) rotate(7deg) scale(1.05); }
+            80% { transform: translate(-50%, -16%) rotate(-4deg) scale(1.05); }
+            100% { transform: translate(-50%, -8%) rotate(0deg) scale(1); }
+        }
+        .celebration-burst {
+            position: absolute;
+            font-size: 2rem;
+            left: 48%;
+            top: 5%;
+            transform: translate(-50%, -50%);
+            animation: burstFloat 1.6s ease-out forwards;
+            pointer-events: none;
+            z-index: 10;
+        }
+        @keyframes burstFloat {
+            0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+            30% { transform: translate(-50%, -160%) scale(1.3); opacity: 1; }
+            100% { transform: translate(-50%, -280%) scale(1); opacity: 0; }
+        }
         .figure-keeper {
             left: 35%;
             top: 82%;
@@ -1882,6 +1909,20 @@
                 else if (type === 'out') playWicket();
             }
 
+            function playClick() { if (muted) return;
+                init();
+                resume();
+                if (!ctx) return;
+                tone(760, now(), 0.06, 'square', 0.09); }
+
+            function playToss() { if (muted) return;
+                init();
+                resume();
+                if (!ctx) return;
+                const t = now();
+                for (let i = 0; i < 6; i++) { noiseHit(t + i * 0.06, 0.045, 3200 - i * 260, 'bandpass', 0.15); }
+                setTimeout(() => { if (!ctx) return; tone(880, now(), 0.22, 'triangle', 0.16, 1200); }, 380); }
+
             const MELODY = [523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880.00, 698.46];
 
             function startWelcomeMusic() {
@@ -1921,6 +1962,8 @@
                 playSix,
                 playWicket,
                 playByBannerType,
+                playClick,
+                playToss,
                 startWelcomeMusic,
                 stopWelcomeMusic,
                 setMuted,
@@ -1942,6 +1985,17 @@
         }
         ['pointerdown', 'touchend', 'mousedown', 'keydown', 'click'].forEach(evt =>
             document.addEventListener(evt, unlockAudioOnce, true));
+
+        // Light "menu" click SFX for buttons/cards outside the live-play controls
+        // (D-pads, mute toggle already have their own sound/feedback).
+        function menuClickSfxDelegate(e) {
+            const target = e.target.closest('button, .flag-card, .over-btn, .diff-btn, .bowler-option, .player-card');
+            if (!target) return;
+            if (target.closest('#dpad-container, #bowl-dpad-container, #sound-toggle-btn')) return;
+            if (target.id === 'toss-heads' || target.id === 'toss-tails') return; // has its own coin-flip sound
+            SoundFX.playClick();
+        }
+        document.addEventListener('click', menuClickSfxDelegate, true);
 
         // Mute button
         (function addMuteButton() {
@@ -2028,6 +2082,14 @@
             openersSelected: false,
             // NEW: track if we need to show opener screen after toss
             pendingOpenerSelection: false,
+            // NEW: AI bowler rotation memory
+            lastOverBowlerName: null,
+            // NEW: fielder name assignment
+            keeperName: null,
+            // NEW: Super Over state
+            isSuperOver: false,
+            superOverRound: 0,
+            superOver: null,
         };
 
         // ---------- UTILITY ----------
@@ -2045,6 +2107,14 @@
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             const el = document.getElementById(id);
             if (el) el.classList.add('active');
+
+            // Background music plays on every screen (menus, toss, result screen)
+            // except during live match play, where it's stopped on the first ball.
+            if (id === 'game-screen') {
+                if (state.matchStarted) SoundFX.stopWelcomeMusic();
+            } else if (!SoundFX.isMuted()) {
+                SoundFX.startWelcomeMusic();
+            }
         }
 
         // ---------- HOW TO PLAY ----------
@@ -2296,6 +2366,7 @@
         function handleToss(call) {
             state.userTossCall = call;
             document.querySelectorAll('.toss-options .btn').forEach(b => b.disabled = true);
+            SoundFX.playToss();
             const coin = document.getElementById('coin-emoji');
             coin.classList.remove('flip');
             void coin.offsetWidth;
@@ -2533,6 +2604,7 @@
             const player = teamRoster.find(p => p.name === name);
             if (!player) return;
             state.currentBowler = { ...player };
+            state.lastOverBowlerName = player.name;
             if (!state.bowlingStats[player.name]) {
                 state.bowlingStats[player.name] = { overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
             }
@@ -2541,6 +2613,7 @@
             document.getElementById('bowler-current-display').textContent =
                 `🎯 ${player.emoji} ${player.name}  ${oversB}ov ${stats.runs||0}r ${stats.wickets||0}w`;
             gameMsg.textContent = `Bowler: ${player.name}. Set your field and bowl.`;
+            assignFielderNames();
         }
 
         function selectBowlers() {
@@ -2555,6 +2628,86 @@
             state.ballsInOver = 0;
         }
 
+        // Auto-select a bowler for the AI's bowling attack (when the AI is bowling
+        // to a human batsman). Rotates bowlers, respects the max-overs-per-bowler
+        // rule, and never repeats the same bowler on consecutive overs when avoidable.
+        function selectAIBowlerForOver() {
+            if (!state.isAIBowling || state.isMatchOver) return;
+            let pool = (state.bowlingOrder && state.bowlingOrder.length) ? state.bowlingOrder : null;
+            if (!pool) { selectBowlers(); pool = state.bowlingOrder; }
+            if (!pool || !pool.length) return;
+
+            const maxOvers = Math.max(1, Math.ceil((state.selectedOvers || 20) / 5));
+            let candidates = pool.filter(b => {
+                const st = state.bowlingStats[b.name] || { balls: 0 };
+                return Math.floor((st.balls || 0) / 6) < maxOvers;
+            });
+            if (state.lastOverBowlerName) {
+                const filtered = candidates.filter(b => b.name !== state.lastOverBowlerName);
+                if (filtered.length) candidates = filtered;
+            }
+            if (!candidates.length) candidates = pool;
+
+            const chosen = random(candidates) || pool[0];
+            if (!chosen) return;
+            state.currentBowler = { ...chosen };
+            state.lastOverBowlerName = chosen.name;
+            if (!state.bowlingStats[chosen.name]) {
+                state.bowlingStats[chosen.name] = { overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
+            }
+            const stats = state.bowlingStats[chosen.name] || {};
+            const oversB = Math.floor((stats.balls || 0) / 6) + '.' + ((stats.balls || 0) % 6);
+            const displayEl = document.getElementById('bowler-current-display');
+            if (displayEl) {
+                displayEl.textContent = `🎯 ${chosen.emoji || ''} ${chosen.name}  ${oversB}ov ${stats.runs||0}r ${stats.wickets||0}w`;
+            }
+            assignFielderNames();
+        }
+
+        // Returns the full 11-player roster of whichever team is currently fielding.
+        function getFieldingRoster() {
+            const teamKey = state.bowlingTeam;
+            if (!teamKey) return [];
+            return (teamKey === state.userTeam) ? state.playingXI : (PLAYERS[teamKey] || []);
+        }
+
+        // Assigns a real player name from the fielding team's roster to each fielder
+        // marker on the ground, excluding the current bowler and wicketkeeper (who
+        // are drawn separately as their own figures). These names are then used
+        // whenever a catch is taken so the scorecard/wicket card shows a real fielder.
+        function assignFielderNames() {
+            if (!state.fielderPositions || !state.fielderPositions.length) return;
+            const roster = getFieldingRoster();
+            if (!roster || !roster.length) return;
+            const bowlerName = state.currentBowler ? state.currentBowler.name : null;
+            const keeper = roster.find(p => p.role === 'WK');
+            state.keeperName = keeper ? keeper.name : 'Keeper';
+            let candidates = roster.filter(p => p.name !== bowlerName && (!keeper || p.name !== keeper.name));
+            if (!candidates.length) candidates = roster.filter(p => p.name !== bowlerName);
+            if (!candidates.length) candidates = roster.slice();
+            const shuffled = shuffleArray([...candidates]);
+            state.fielderPositions.forEach((f, i) => {
+                const pick = shuffled[i % shuffled.length];
+                f.catcherName = pick ? pick.name : 'Fielder';
+            });
+        }
+
+        // Picks a plausible fielder name for a catch when no specific fielder
+        // position was involved in the resolution (e.g. instant AI-batting resolve).
+        function pickRandomFielderCatcher() {
+            if (state.fielderPositions && state.fielderPositions.length) {
+                const withNames = state.fielderPositions.filter(f => f.catcherName);
+                if (withNames.length) return random(withNames).catcherName;
+            }
+            const roster = getFieldingRoster();
+            const bowlerName = state.currentBowler ? state.currentBowler.name : null;
+            const keeperName = state.keeperName || (roster.find(p => p.role === 'WK') || {}).name;
+            let cands = roster.filter(p => p.name !== bowlerName && p.name !== keeperName);
+            if (!cands.length) cands = roster.filter(p => p.name !== bowlerName);
+            if (cands.length) return random(cands).name;
+            return 'Fielder';
+        }
+
         function startNewOver() {
             if (state.isAIBatting && !state.isMatchOver) {
                 // Show bowler modal for the new over (only if user is bowling)
@@ -2563,6 +2716,9 @@
                 document.getElementById('field-controls-container').style.display = 'block';
                 document.getElementById('bowl-controls-container').style.display = 'block';
                 setBowlDpadEnabled(true);
+            } else if (state.isAIBowling && !state.isMatchOver) {
+                // AI is bowling to the human batsman: auto-pick its bowler for this over.
+                selectAIBowlerForOver();
             }
             state.ballsInOver = 0;
             updateScoreboard();
@@ -2653,6 +2809,7 @@
                 return resolveFielderPoint(p.x, p.y);
             });
             enforceFieldOutsideLimit(getMaxFieldersOutside());
+            assignFielderNames();
         }
 
         function enforceFieldOutsideLimit(maxOutside) {
@@ -2705,6 +2862,7 @@
                 positions.push(resolveFielderPoint(x, y));
             }
             state.fielderPositions = positions;
+            assignFielderNames();
         }
 
         // ================================================================
@@ -2987,11 +3145,13 @@
                     );
                     const scale = (innerR * 0.94) / (dist || 1);
                     const pulled = resolveFielderPoint(cx + dx * scale, cy + dy * scale);
+                    pulled.catcherName = state.fielderPositions[draggedFielderIndex].catcherName;
                     state.fielderPositions[draggedFielderIndex] = pulled;
                     drawPitch();
                     return;
                 }
             }
+            pos.catcherName = state.fielderPositions[draggedFielderIndex].catcherName;
             state.fielderPositions[draggedFielderIndex] = pos;
             drawPitch();
         }
@@ -3254,6 +3414,27 @@
         const CELEBRATIONS = ['🙌', '🤫', '💪', '✈️', '🦅', '🔥', '🎯', '⚡'];
 
         function randomCelebration() { return CELEBRATIONS[Math.floor(Math.random() * CELEBRATIONS.length)]; }
+
+        // Animates the bowler figure on the pitch (fist-pump style bounce) and
+        // spawns a floating celebration emoji whenever a wicket falls — for both
+        // the AI's bowler and the user's bowler.
+        function triggerBowlerCelebration() {
+            const bowlerFigure = document.getElementById('figure-bowler');
+            if (bowlerFigure) {
+                bowlerFigure.classList.remove('celebrating');
+                void bowlerFigure.offsetWidth;
+                bowlerFigure.classList.add('celebrating');
+                setTimeout(() => bowlerFigure.classList.remove('celebrating'), 2500);
+            }
+            const stage = document.getElementById('pitch-stage');
+            if (stage) {
+                const burst = document.createElement('div');
+                burst.className = 'celebration-burst';
+                burst.textContent = randomCelebration();
+                stage.appendChild(burst);
+                setTimeout(() => burst.remove(), 1700);
+            }
+        }
 
         function showWicketCard(batsman, bowler, runs, balls, dismissal, catcher, isGoldenDuck, isDuck) {
             const overlay = document.getElementById('wicketOverlay');
@@ -3757,6 +3938,7 @@
                         updateFigures();
                     }, 3000);
                 }
+                triggerBowlerCelebration();
 
                 updateScoreboard();
                 drawPitch();
@@ -4281,6 +4463,7 @@
                 const isGolden = (runsScored === 0 && ballsFaced === 1);
                 const isDuck = (runsScored === 0 && ballsFaced > 1);
                 const dismissType = outcome.outType || 'Wicket';
+                const catcherName = (dismissType === 'Caught') ? pickRandomFielderCatcher() : null;
 
                 showWicketCard(
                     batsmanName,
@@ -4288,7 +4471,7 @@
                     runsScored,
                     ballsFaced,
                     dismissType,
-                    null,
+                    catcherName,
                     isGolden,
                     isDuck
                 );
@@ -4301,25 +4484,27 @@
                         updateFigures();
                     }, 3000);
                 }
+                triggerBowlerCelebration();
 
                 if (bat) {
                     bat.isOut = true;
                     bat.dismissal = dismissType;
                     bat.dismissalDetail = dismissType;
                     bat.bowler = bowlerName;
+                    bat.catcher = catcherName;
                     state.dismissalRecords.push({
                         batsman: batsmanName,
                         runs: runsScored,
                         balls: ballsFaced,
                         dismissal: dismissType,
                         bowler: bowlerName,
-                        catcher: null,
+                        catcher: catcherName,
                         isGoldenDuck: isGolden,
                         isDuck: isDuck
                     });
                 }
 
-                finishBattingTurn(outcome.runs, true, outcome.outType, false, null, outcome.outType);
+                finishBattingTurn(outcome.runs, true, outcome.outType, false, catcherName, outcome.outType);
             } else {
                 finishBattingTurn(outcome.runs, false, '', false, null, '');
             }
@@ -4392,8 +4577,8 @@
                 state.target = state.runs + 1;
                 state.currentInnings = 2;
                 state.innings1Team = state.battingTeam;
-                state.innings1BattingOrder = state.battingOrder.map(b => ({ ...b }));
-                state.innings1BowlingOrder = state.bowlingOrder.map(b => ({ ...b }));
+                state.innings1BattingOrder = state.battingOrder.map(b => ({ ...b, team: state.battingTeam }));
+                state.innings1BowlingOrder = state.bowlingOrder.map(b => ({ ...b, team: state.bowlingTeam }));
 
                 const temp = state.battingTeam;
                 state.battingTeam = state.bowlingTeam;
@@ -4471,8 +4656,8 @@
             } else {
                 state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.innings2Team = state.battingTeam;
-                state.innings2BattingOrder = state.battingOrder.map(b => ({ ...b }));
-                state.innings2BowlingOrder = state.bowlingOrder.map(b => ({ ...b }));
+                state.innings2BattingOrder = state.battingOrder.map(b => ({ ...b, team: state.battingTeam }));
+                state.innings2BowlingOrder = state.bowlingOrder.map(b => ({ ...b, team: state.bowlingTeam }));
 
                 const team1 = state.innings1Team;
                 const team2 = state.innings2Team;
@@ -4525,13 +4710,13 @@
             if (state.currentInnings === 1) {
                 state.innings1 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.innings1Team = state.battingTeam;
-                state.innings1BattingOrder = state.battingOrder.map(b => ({ ...b }));
-                state.innings1BowlingOrder = state.bowlingOrder.map(b => ({ ...b }));
+                state.innings1BattingOrder = state.battingOrder.map(b => ({ ...b, team: state.battingTeam }));
+                state.innings1BowlingOrder = state.bowlingOrder.map(b => ({ ...b, team: state.bowlingTeam }));
             } else {
                 state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.innings2Team = state.battingTeam;
-                state.innings2BattingOrder = state.battingOrder.map(b => ({ ...b }));
-                state.innings2BowlingOrder = state.bowlingOrder.map(b => ({ ...b }));
+                state.innings2BattingOrder = state.battingOrder.map(b => ({ ...b, team: state.battingTeam }));
+                state.innings2BowlingOrder = state.bowlingOrder.map(b => ({ ...b, team: state.bowlingTeam }));
             }
 
             const t1 = state.innings1Team || state.selectedTeam;
