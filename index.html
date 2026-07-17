@@ -3794,17 +3794,18 @@
             const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
             const y = canvasY !== undefined ? canvasY : (e.clientY - rect.top) / rect.height * canvas.height;
 
-            // Manual field-placement mode: pick up the nearest fielder (if any)
-            // and drag them instead of bowling/batting.
+            // Manual field-placement mode: pick up a fielder only if the tap
+            // actually landed on one. A tap anywhere else on the pitch falls
+            // through to the normal tap-to-bowl behavior below, so bowling
+            // still works normally while Manual is the selected field mode.
             if (canEditFieldNow()) {
                 const idx = findNearestFielderIndex(x, y, 32);
                 if (idx >= 0) {
                     draggedFielderIndex = idx;
                     isDraggingFielder = true;
+                    return;
                 }
-                // Tapped empty ground in manual mode — do nothing (must not
-                // accidentally trigger a delivery).
-                return;
+                // Fall through — tap wasn't on a fielder, treat as bowling.
             }
 
             // It's the user's bowling turn: treat this tap as picking a line/length spot.
