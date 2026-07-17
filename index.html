@@ -1570,7 +1570,8 @@
             }
 
             function resume() {
-                if (ctx && ctx.state === 'suspended') ctx.resume();
+                if (ctx && ctx.state === 'suspended') return ctx.resume();
+                return Promise.resolve();
             }
 
             // A short buffer of random noise — the raw material for whoosh,
@@ -1725,14 +1726,27 @@
 
         // Browsers block audio until a real user gesture — unlock + kick off
         // the welcome music on the very first tap/click anywhere on the page.
+        // iOS Safari in particular doesn't always treat a bare 'pointerdown'
+        // as a valid audio-unlock gesture, so we listen for several standard
+        // gesture event types and act on whichever fires first.
+        let audioUnlocked = false;
         function unlockAudioOnce() {
+            if (audioUnlocked) return;
+            audioUnlocked = true;
             SoundFX.init();
-            SoundFX.resume();
+            SoundFX.resume().then(() => {
+                if (!state.matchStarted) {
+                    SoundFX.startWelcomeMusic();
+                }
+            });
             if (!state.matchStarted) {
                 SoundFX.startWelcomeMusic();
             }
+            ['pointerdown', 'touchend', 'mousedown', 'keydown', 'click'].forEach(evt =>
+                document.removeEventListener(evt, unlockAudioOnce, true));
         }
-        document.addEventListener('pointerdown', unlockAudioOnce, { once: true });
+        ['pointerdown', 'touchend', 'mousedown', 'keydown', 'click'].forEach(evt =>
+            document.addEventListener(evt, unlockAudioOnce, true));
 
         // Small mute/unmute toggle, fixed to the corner of the app card.
         (function addMuteButton() {
