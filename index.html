@@ -1487,6 +1487,7 @@
             if (!el) return;
             el.textContent = text;
             el.className = 'result-banner show ' + type;
+            if (typeof SoundFX !== 'undefined') SoundFX.playByBannerType(type);
             clearTimeout(window._bannerTimeout);
             window._bannerTimeout = setTimeout(() => { el.classList.remove('show'); }, 1300);
         }
@@ -1551,7 +1552,214 @@
         document.getElementById('howto-content').innerHTML = HOWTO_HTML;
         document.getElementById('howto-content-modal').innerHTML = HOWTO_HTML;
 
+        // ================= SOUND FX (all synthesized — no audio files) =================
+        const SoundFX = (function() {
+            let ctx = null;
+            let master = null;
+            let muted = false;
+            let musicTimer = null;
+
+            function init() {
+                if (ctx) return;
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                ctx = new AC();
+                master = ctx.createGain();
+                master.gain.value = 0.55;
+                master.connect(ctx.destination);
+            }
+
+            function resume() {
+                if (ctx && ctx.state === 'suspended') ctx.resume();
+            }
+
+            // A short buffer of random noise — the raw material for whoosh,
+            // crack, and crowd-cheer sounds (filtered/shaped differently).
+            function noiseBuffer(duration) {
+                const len = Math.max(1, Math.floor(ctx.sampleRate * duration));
+                const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+                const data = buf.getChannelData(0);
+                for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+                return buf;
+            }
+
+            function now() { return ctx.currentTime; }
+
+            // ---- Building blocks ----
+            function tone(freq, start, duration, type, peakGain, glideTo) {
+                const osc = ctx.createOscillator();
+                const g = ctx.createGain();
+                osc.type = type || 'sine';
+                osc.frequency.setValueAtTime(freq, start);
+                if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, start + duration);
+                g.gain.setValueAtTime(0.0001, start);
+                g.gain.exponentialRampToValueAtTime(peakGain, start + duration * 0.12);
+                g.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+                osc.connect(g);
+                g.connect(master);
+                osc.start(start);
+                osc.stop(start + duration + 0.02);
+            }
+
+            function noiseHit(start, duration, filterFreq, filterType, peakGain, freqRamp) {
+                const src = ctx.createBufferSource();
+                src.buffer = noiseBuffer(duration);
+                const filt = ctx.createBiquadFilter();
+                filt.type = filterType || 'bandpass';
+                filt.frequency.setValueAtTime(filterFreq, start);
+                if (freqRamp) filt.frequency.exponentialRampToValueAtTime(freqRamp, start + duration);
+                const g = ctx.createGain();
+                g.gain.setValueAtTime(0.0001, start);
+                g.gain.exponentialRampToValueAtTime(peakGain, start + Math.min(0.03, duration * 0.2));
+                g.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+                src.connect(filt);
+                filt.connect(g);
+                g.connect(master);
+                src.start(start);
+                src.stop(start + duration + 0.02);
+            }
+
+            // Crowd cheer: several overlapping filtered-noise "voices" swelling
+            // and fading, plus a few clap-like transients on top.
+            function crowd(intensity) {
+                const start = now();
+                const dur = 1.0 + intensity * 0.9; // six > four > wicket-ish
+                const voices = 3 + Math.round(intensity * 3);
+                for (let i = 0; i < voices; i++) {
+                    const t0 = start + Math.random() * 0.1;
+                    const freq = 500 + Math.random() * 900;
+                    noiseHit(t0, dur * (0.7 + Math.random() * 0.4), freq, 'bandpass',
+                        0.10 * intensity, freq * 0.6);
+                }
+                const claps = 4 + Math.round(intensity * 4);
+                for (let i = 0; i < claps; i++) {
+                    const t0 = start + 0.05 + Math.random() * dur * 0.6;
+                    noiseHit(t0, 0.05, 2500 + Math.random() * 2000, 'highpass', 0.12 * intensity);
+                }
+            }
+
+            // ---- Public sound events ----
+            function playWhoosh() {
+                if (muted) { return; }
+                init(); resume();
+                if (!ctx) return;
+                noiseHit(now(), 0.28, 2200, 'bandpass', 0.20, 500);
+            }
+
+            function playBatHit() {
+                if (muted) { return; }
+                init(); resume();
+                if (!ctx) return;
+                const t = now();
+                noiseHit(t, 0.09, 3500, 'bandpass', 0.35, 1200);
+                tone(900, t, 0.08, 'square', 0.12, 300);
+            }
+
+            function playFour() {
+                if (muted) { return; }
+                init(); resume();
+                if (!ctx) return;
+                crowd(0.6);
+            }
+
+            function playSix() {
+                if (muted) { return; }
+                init(); resume();
+                if (!ctx) return;
+                crowd(1.0);
+            }
+
+            function playWicket() {
+                if (muted) { return; }
+                init(); resume();
+                if (!ctx) return;
+                const t = now();
+                // Stump rattle: a few quick metallic clicks
+                for (let i = 0; i < 4; i++) {
+                    noiseHit(t + i * 0.05, 0.05, 4000 + i * 400, 'highpass', 0.22);
+                }
+                // Crowd reacts a beat later
+                setTimeout(() => crowd(0.75), 180);
+            }
+
+            function playByBannerType(type) {
+                if (type === 'four') playFour();
+                else if (type === 'six') playSix();
+                else if (type === 'out') playWicket();
+            }
+
+            // Gentle looping welcome-screen melody — a short, pleasant
+            // arpeggio repeated on a timer (not a real audio file).
+            const MELODY = [523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880.00, 698.46];
+            function startWelcomeMusic() {
+                if (muted) return;
+                init(); resume();
+                if (!ctx || musicTimer) return;
+                let i = 0;
+                const step = () => {
+                    if (muted) return;
+                    const t = now();
+                    tone(MELODY[i % MELODY.length], t, 0.5, 'triangle', 0.05);
+                    tone(MELODY[i % MELODY.length] / 2, t, 0.9, 'sine', 0.03);
+                    i++;
+                };
+                step();
+                musicTimer = setInterval(step, 550);
+            }
+            function stopWelcomeMusic() {
+                if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+            }
+
+            function setMuted(v) {
+                muted = v;
+                if (muted) stopWelcomeMusic();
+                if (master) master.gain.value = muted ? 0 : 0.55;
+            }
+            function isMuted() { return muted; }
+
+            return {
+                init, resume, playWhoosh, playBatHit, playFour, playSix, playWicket,
+                playByBannerType, startWelcomeMusic, stopWelcomeMusic, setMuted, isMuted,
+            };
+        })();
+
+        // Browsers block audio until a real user gesture — unlock + kick off
+        // the welcome music on the very first tap/click anywhere on the page.
+        function unlockAudioOnce() {
+            SoundFX.init();
+            SoundFX.resume();
+            const welcomeScreen = document.getElementById('welcome-screen');
+            if (welcomeScreen && welcomeScreen.classList.contains('active')) {
+                SoundFX.startWelcomeMusic();
+            }
+        }
+        document.addEventListener('pointerdown', unlockAudioOnce, { once: true });
+
+        // Small mute/unmute toggle, fixed to the corner of the app card.
+        (function addMuteButton() {
+            const btn = document.createElement('button');
+            btn.id = 'sound-toggle-btn';
+            btn.textContent = '🔊';
+            btn.style.cssText = 'position:absolute;top:10px;right:10px;z-index:50;' +
+                'background:#2a4055;color:#fff;border:none;border-radius:50%;' +
+                'width:34px;height:34px;font-size:1rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.4);';
+            btn.addEventListener('click', function() {
+                const nowMuted = !SoundFX.isMuted();
+                SoundFX.setMuted(nowMuted);
+                btn.textContent = nowMuted ? '🔇' : '🔊';
+                if (!nowMuted) {
+                    const welcomeScreen = document.getElementById('welcome-screen');
+                    if (welcomeScreen && welcomeScreen.classList.contains('active')) {
+                        SoundFX.startWelcomeMusic();
+                    }
+                }
+            });
+            document.getElementById('app').appendChild(btn);
+        })();
+        // ================= END SOUND FX =================
+
         document.getElementById('btn-welcome-continue').addEventListener('click', () => {
+            SoundFX.stopWelcomeMusic();
             showScreen('menu-screen');
         });
         document.getElementById('info-bubble').addEventListener('click', () => {
@@ -1814,6 +2022,9 @@
             state.ballReady = false;
 
             const outcome = computeInstantBallOutcome(line, length, variation);
+
+            const isMiss = outcome.isOut && (outcome.outType === 'Bowled' || outcome.outType === 'LBW');
+            if (!isMiss && typeof SoundFX !== 'undefined') SoundFX.playBatHit();
 
             if (outcome.isOut) {
                 gameMsg.textContent = `OUT! ${outcome.outType}`;
@@ -2726,6 +2937,7 @@
                 // are two balls on screen at once.
                 const hb = document.getElementById('bowler-ball-hand');
                 if (hb) hb.style.opacity = '0';
+                if (typeof SoundFX !== 'undefined') SoundFX.playWhoosh();
             }, 240);
             setTimeout(() => { el.classList.remove('delivering'); }, 520);
         }
@@ -3347,6 +3559,7 @@
             else if (ball.impactLine === 'off') direction = 'right';
 
             triggerBatSwing(direction);
+            if (typeof SoundFX !== 'undefined') SoundFX.playBatHit();
 
             const isLoft = (Math.random() < 0.15) || (state.runs < 15 && state.balls < 10);
             const batX = canvas.width * 0.48,
@@ -3621,6 +3834,7 @@
             else if (diffX > 30) direction = 'right';
 
             triggerBatSwing(direction);
+            if (typeof SoundFX !== 'undefined') SoundFX.playBatHit();
 
             const t = ball.progress;
             let timing = 'perfect';
