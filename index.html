@@ -1405,7 +1405,8 @@
                 <li>You can play your shot <b>as soon as the ball is released</b> — drag on the pitch toward where you want to hit it, or use the <b>D‑pad on the right</b>, at any point during the ball's flight. You don't have to wait for it to arrive.</li>
                 <li>Toggle <b>LOFT</b> for a chance at a big hit — higher reward, but a fielder can catch you out if it's not timed well.</li>
                 <li>Timing matters: committing early, on time, or late changes whether you get EARLY / PERFECT / LATE timing.</li>
-                <li>Aim for the gaps between fielders for boundaries; hitting straight at a fielder risks being caught. Catches are more likely to be held later in the innings — early on, fielders are more likely to drop them.</li>
+                <li>Aim for the gaps between fielders for boundaries; hitting straight at a fielder risks being caught. Fielders hold onto the large majority of chances, just like real cricket — drops are a rare, low-probability event that gets even rarer late in the innings.</li>
+                <li>When you're bowling, use <b>Manual</b> to drag fielders anywhere inside the ground, or tap <b>Auto Field</b> for a fresh randomized legal field each time. Only 2 fielders may be outside the inner circle during Power Play, and only 4 afterward — the game blocks and warns you if you try to break this rule.</li>
             </ul>
             <h4>⚡ Bowling</h4>
             <ul>
@@ -1497,15 +1498,18 @@
                 .sort((a, b) => rank(a.role) - rank(b.role));
         }
 
-        // Pick the Man of the Match from the WINNING team only, based on whoever
-        // put up the best combined runs/wickets across both innings.
+        // Pick the Man of the Match. If a winning team is given, only that
+        // team's players are eligible (real-world MOTM is always from the
+        // winning side). On a tie, everyone is eligible. A strong bowling
+        // spell (wickets, and cheaply) outweighs a middling batting score,
+        // matching how MOTM is picked in real cricket.
         function computeMotm(winningTeam) {
             const pool = [
                 ...(state.innings1BattingOrder || []),
                 ...(state.innings2BattingOrder || []),
                 ...(state.innings1BowlingOrder || []),
                 ...(state.innings2BowlingOrder || []),
-            ].filter(p => p && p.team === winningTeam);
+            ].filter(p => p && (!winningTeam || p.team === winningTeam));
 
             if (pool.length === 0) {
                 const fallback = state.playingXI[0] || { name: 'Player' };
@@ -1514,15 +1518,20 @@
 
             const merged = {};
             pool.forEach(p => {
-                if (!merged[p.name]) merged[p.name] = { name: p.name, runs: 0, wickets: 0 };
+                if (!merged[p.name]) merged[p.name] = { name: p.name, runs: 0, wickets: 0, runsConceded: 0 };
                 merged[p.name].runs += (p.runs || 0);
                 merged[p.name].wickets += (p.wickets || 0);
+                merged[p.name].runsConceded += (p.runsConceded || 0);
             });
 
-            // Standard MOTM heuristic: weight wickets heavily against runs.
-            return Object.values(merged).sort((a, b) =>
-                (b.runs + b.wickets * 25) - (a.runs + a.wickets * 25)
-            )[0];
+            // Wickets are worth far more than runs, and conceding fewer runs
+            // while taking wickets is rewarded (an economical spell beats an
+            // expensive one with the same wicket count).
+            return Object.values(merged).sort((a, b) => {
+                const scoreA = a.runs + a.wickets * 20 - a.runsConceded * 0.3;
+                const scoreB = b.runs + b.wickets * 20 - b.runsConceded * 0.3;
+                return scoreB - scoreA;
+            })[0];
         }
 
         // Full batting/bowling scorecard shown on the result screen.
@@ -1578,7 +1587,7 @@
         }
 
         function applyMotm(winningTeam) {
-            const best = winningTeam ? computeMotm(winningTeam) : null;
+            const best = computeMotm(winningTeam);
             if (best) {
                 state.motm = best.name;
                 document.getElementById('motm-name').textContent = best.name;
@@ -1951,13 +1960,17 @@
         // ---------- BOWLER SELECTION ----------
         function selectBowlers() {
             const overs = state.selectedOvers;
-            const bowlers = state.playingXI.filter(p => p.role === 'BOWL' || p.role === 'AR');
+            const bowlingTeam = state.bowlingTeam;
+            // Bowlers must come from whichever team is actually bowling this
+            // innings — not always the user's own XI, or a Pakistan bowler
+            // could end up "bowling" (and taking wickets) for India, etc.
+            const roster = (bowlingTeam === state.userTeam) ? state.playingXI : (PLAYERS[bowlingTeam] || []);
+            const bowlers = roster.filter(p => p.role === 'BOWL' || p.role === 'AR');
             if (bowlers.length === 0) {
-                for (let i = 0; i < Math.min(4, state.playingXI.length); i++) {
-                    bowlers.push({ ...state.playingXI[i], role: 'BOWL' });
+                for (let i = 0; i < Math.min(4, roster.length); i++) {
+                    bowlers.push({ ...roster[i], role: 'BOWL' });
                 }
             }
-            const bowlingTeam = state.bowlingTeam;
             const selected = [];
             if (overs === 1) {
                 const b = { ...random(bowlers), maxBalls: 6, ballsBowled: 0, runsConceded: 0, wickets: 0, team: bowlingTeam };
@@ -2041,11 +2054,74 @@
         }
 
         // ---------- FIELDING ----------
-        const DEFAULT_FIELDER_ANGLES = [200, 235, 265, 300, 335, 15, 55, 95, 130, 165];
+        const DEFAULT_FIELDER_ANGLES = [200, 240, 280, 320, 0, 40, 80, 120, 160];
         const INNER_CIRCLE_FRACTION = 0.56;
 
         function fielderBaseRadius(i) {
             return (i < 2) ? 0.24 : 0.46;
+        }
+
+        // ---- Fielding-limit / boundary helpers ----
+
+        // Radius (in canvas px) of the inner "circle" fielders must mostly stay within.
+        function getInnerCircleRadius() {
+            return canvas.width * INNER_CIRCLE_FRACTION * 0.62;
+        }
+
+        // Max fielders allowed OUTSIDE the inner circle right now: 2 during Power
+        // Play, 4 once Power Play restrictions have lifted (per the game's rules).
+        function getMaxFieldersOutside() {
+            return isInPowerplay() ? 2 : 4;
+        }
+
+        // The playable ground boundary (rope) as an ellipse, pulled in slightly so
+        // fielders always render fully inside the rope, never on/over it.
+        function groundEllipse() {
+            const W = canvas.width,
+                H = canvas.height;
+            return {
+                cx: W * 0.5,
+                cy: H * 0.5,
+                rx: W * 0.5 * 0.90,
+                ry: H * 0.46 * 0.90
+            };
+        }
+
+        // Clamp a point so it always sits within the ground boundary.
+        function clampToGround(x, y) {
+            const { cx, cy, rx, ry } = groundEllipse();
+            const dx = x - cx,
+                dy = y - cy;
+            const nd = Math.sqrt((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry));
+            if (nd <= 1) return { x, y };
+            const pt = pointOnEllipseBoundary(cx, cy, rx, ry, dx, dy);
+            return { x: pt.x, y: pt.y };
+        }
+
+        function isOutsideCircle(f) {
+            const W = canvas.width,
+                H = canvas.height;
+            const cx = W * 0.5,
+                cy = H * 0.5;
+            return Math.hypot(f.x - cx, f.y - cy) > getInnerCircleRadius();
+        }
+
+        function countFieldersOutsideCircle(excludeIndex) {
+            if (!state.fielderPositions) return 0;
+            let count = 0;
+            state.fielderPositions.forEach((f, i) => {
+                if (i === excludeIndex) return;
+                if (isOutsideCircle(f)) count++;
+            });
+            return count;
+        }
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
         }
 
         function initFielderPositions() {
@@ -2056,20 +2132,26 @@
             state.fielderPositions = DEFAULT_FIELDER_ANGLES.map((a, i) => {
                 const rad = a * Math.PI / 180;
                 const rFrac = fielderBaseRadius(i);
-                return {
+                const p = {
                     x: cx + Math.cos(rad) * W * rFrac,
                     y: cy + Math.sin(rad) * H * rFrac * 0.96
                 };
+                return clampToGround(p.x, p.y);
             });
+            // Make sure the default layout itself never breaks the current
+            // outside-the-circle limit (e.g. 2 during Power Play).
+            enforceFieldOutsideLimit(getMaxFieldersOutside());
         }
 
-        function enforcePowerplayField(maxOutside) {
+        // Pulls back any fielders beyond `maxOutside` so they sit just inside the
+        // circle. Used to enforce Power Play (2) / post-Power-Play (4) rules.
+        function enforceFieldOutsideLimit(maxOutside) {
             if (!state.fielderPositions) return;
             const W = canvas.width,
                 H = canvas.height;
             const cx = W * 0.5,
                 cy = H * 0.5;
-            const innerR = W * INNER_CIRCLE_FRACTION * 0.62;
+            const innerR = getInnerCircleRadius();
             let outsideCount = 0;
             state.fielderPositions.forEach(f => {
                 const dx = f.x - cx,
@@ -2086,14 +2168,80 @@
             });
         }
 
+        // Backwards-compatible alias (kept in case anything else references it).
+        function enforcePowerplayField(maxOutside) {
+            enforceFieldOutsideLimit(maxOutside);
+        }
+
+        // Generates a brand-new, randomized, RULE-LEGAL field placement: exactly
+        // up to `getMaxFieldersOutside()` fielders outside the circle, the rest
+        // inside it, and every fielder kept within the ground boundary. Called
+        // each time the "Auto Field" button is pressed so the field actually
+        // changes instead of resetting to the same default spots.
+        function randomizeFieldPositions() {
+            const W = canvas.width,
+                H = canvas.height;
+            const cx = W * 0.5,
+                cy = H * 0.5;
+            const innerR = getInnerCircleRadius();
+            const maxOutside = getMaxFieldersOutside();
+            const n = DEFAULT_FIELDER_ANGLES.length;
+            const order = shuffleArray([...Array(n).keys()]);
+            const outsideSet = new Set(order.slice(0, maxOutside));
+            const angleStep = 360 / n;
+
+            const positions = [];
+            for (let i = 0; i < n; i++) {
+                const jitter = (Math.random() * angleStep * 0.7) - (angleStep * 0.35);
+                const angle = (i * angleStep + jitter) * Math.PI / 180;
+                let r;
+                if (outsideSet.has(i)) {
+                    r = innerR + 22 + Math.random() * 85; // between circle edge and boundary
+                } else {
+                    r = 35 + Math.random() * Math.max(10, innerR - 55); // inside the circle
+                }
+                const x = cx + Math.cos(angle) * r;
+                const y = cy + Math.sin(angle) * r * 0.96;
+                positions.push(clampToGround(x, y));
+            }
+            state.fielderPositions = positions;
+        }
+
         function drawFielders() {
             const W = canvas.width,
                 H = canvas.height;
             if (!state.fielderPositions) initFielderPositions();
             const c = TEAM_COLORS[state.bowlingTeam] || TEAM_COLORS.pakistan;
-            state.fielderPositions.forEach(f => {
+
+            // While in manual field-placement mode, show the inner circle so the
+            // "2 outside during Power Play / 4 outside after" rule is visible.
+            if (state.fieldMode === 'manual' && canEditFieldNow()) {
+                const cx = W * 0.5,
+                    cy = H * 0.5;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(cx, cy, getInnerCircleRadius(), 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            state.fielderPositions.forEach((f, fi) => {
                 const fx = f.x,
                     fy = f.y;
+                if (fi === draggedFielderIndex) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(fx, fy, 12, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,235,59,0.35)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffeb3b';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.restore();
+                }
                 ctx.strokeStyle = '#2b2b2b';
                 ctx.lineWidth = 1.6;
                 ctx.beginPath();
@@ -2277,16 +2425,18 @@
             initFielderPositions();
             if (state.powerplayOvers > 0) {
                 showPowerplayBanner(`🟡 POWER PLAY! Overs 1-${state.powerplayOvers} — max 2 fielders outside the circle`);
-                enforcePowerplayField(2);
+                enforceFieldOutsideLimit(2);
             }
             updateFieldControlsVisibility();
         }
 
         function checkPowerplayOverCrossing() {
             if (state.powerplayOvers > 0 && state.overs === state.powerplayOvers) {
-                showPowerplayBanner('✅ POWER PLAY OVER — field is open now');
+                showPowerplayBanner('✅ POWER PLAY OVER — field is open now (max 4 outside the circle)');
+                // Restriction just loosened from 2 to 4 — existing positions are
+                // still legal, nothing needs to move.
             } else if (state.powerplayOvers > 0 && state.overs < state.powerplayOvers && state.fieldMode === 'auto') {
-                enforcePowerplayField(2);
+                enforceFieldOutsideLimit(getMaxFieldersOutside());
             }
         }
 
@@ -2305,18 +2455,18 @@
             state.fieldMode = 'auto';
             this.classList.add('active');
             document.getElementById('field-manual-btn').classList.remove('active');
-            initFielderPositions();
-            if (isInPowerplay()) enforcePowerplayField(2);
-            gameMsg.textContent = 'Auto fielding placement active.';
+            randomizeFieldPositions();
+            const maxOutside = getMaxFieldersOutside();
+            gameMsg.textContent = `Auto fielding placement set (max ${maxOutside} outside the circle${isInPowerplay() ? ' — Power Play' : ''}).`;
             drawPitch();
         });
         document.getElementById('field-manual-btn').addEventListener('click', function() {
             state.fieldMode = 'manual';
             this.classList.add('active');
             document.getElementById('field-auto-btn').classList.remove('active');
-            gameMsg.textContent = isInPowerplay() ?
-                'Drag fielders to place them (max 2 outside the circle during Power Play).' :
-                'Drag fielders on the ground to place them.';
+            const maxOutside = getMaxFieldersOutside();
+            gameMsg.textContent = `Drag a fielder to reposition them (max ${maxOutside} outside the circle${isInPowerplay() ? ' during Power Play' : ''}, all fielders must stay inside the ground).`;
+            drawPitch();
         });
 
         // ---------- BOWLING FUNCTIONS ----------
@@ -2733,13 +2883,15 @@
             const catchThreshold = 50;
             const isFielded = nearestDist < catchThreshold && nearestIdx >= 0;
 
-            // Catch probability starts low (~10%) early in the innings and climbs
-            // toward the death overs / final balls, when fielders are sharpest.
+            // Catch probability starts reasonably high (~80%, matching real-world
+            // fielding standards) and climbs further toward the death overs / final
+            // balls, when fielders are sharpest. Drops are the rare exception, not
+            // the norm.
             const totalBalls = Math.max(1, state.selectedOvers * 6);
             const ballsRemaining = totalBalls - state.balls;
-            let catchChance = 0.10 + (state.balls / totalBalls) * 0.55;
-            if (ballsRemaining <= 3) catchChance += 0.25;
-            catchChance = Math.min(catchChance, 0.92);
+            let catchChance = 0.80 + (state.balls / totalBalls) * 0.15;
+            if (ballsRemaining <= 3) catchChance += 0.03;
+            catchChance = Math.min(catchChance, 0.97);
             const dropChance = 1 - catchChance;
 
             let isDrop = false;
@@ -3027,10 +3179,88 @@
             return state.isAIBowling && !!state.ball && !state.isMatchOver && !state.shotPlayed;
         }
 
+        // ---- Manual fielder dragging ----
+        let isDraggingFielder = false;
+        let draggedFielderIndex = -1;
+
+        function canEditFieldNow() {
+            // Fielder placement only makes sense on the user's bowling turn,
+            // before the next ball has been released.
+            return state.isAIBatting && !state.isBallInPlay && !state.isMatchOver &&
+                state.fieldMode === 'manual';
+        }
+
+        function findNearestFielderIndex(x, y, maxDist) {
+            if (!state.fielderPositions) return -1;
+            let nearestIdx = -1,
+                nearestDist = Infinity;
+            state.fielderPositions.forEach((f, i) => {
+                const d = Math.hypot(f.x - x, f.y - y);
+                if (d < nearestDist) {
+                    nearestDist = d;
+                    nearestIdx = i;
+                }
+            });
+            return (nearestDist <= maxDist) ? nearestIdx : -1;
+        }
+
+        function warnFieldLimit(msg) {
+            gameMsg.textContent = '⚠️ ' + msg;
+            showResultBanner('NOT ALLOWED', 'out');
+        }
+
+        function updateDraggedFielderPosition(x, y) {
+            if (draggedFielderIndex < 0 || !state.fielderPositions) return;
+            const W = canvas.width,
+                H = canvas.height;
+            const cx = W * 0.5,
+                cy = H * 0.5;
+
+            // Always keep the fielder inside the ground boundary rope.
+            const pos = clampToGround(x, y);
+            const dx = pos.x - cx,
+                dy = pos.y - cy;
+            const dist = Math.hypot(dx, dy);
+            const innerR = getInnerCircleRadius();
+            const wouldBeOutside = dist > innerR;
+
+            if (wouldBeOutside) {
+                const maxOutside = getMaxFieldersOutside();
+                const currentOutside = countFieldersOutsideCircle(draggedFielderIndex);
+                if (currentOutside >= maxOutside) {
+                    // Rule violation — block it, warn the user, and keep the
+                    // fielder just inside the circle instead.
+                    warnFieldLimit(
+                        `Only ${maxOutside} fielder${maxOutside === 1 ? '' : 's'} allowed outside the circle` +
+                        (isInPowerplay() ? ' during Power Play!' : ' after Power Play!')
+                    );
+                    const scale = (innerR * 0.94) / (dist || 1);
+                    state.fielderPositions[draggedFielderIndex] = { x: cx + dx * scale, y: cy + dy * scale };
+                    drawPitch();
+                    return;
+                }
+            }
+            state.fielderPositions[draggedFielderIndex] = pos;
+            drawPitch();
+        }
+
         function startDrag(e, canvasX, canvasY) {
             const rect = canvas.getBoundingClientRect();
             const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
             const y = canvasY !== undefined ? canvasY : (e.clientY - rect.top) / rect.height * canvas.height;
+
+            // Manual field-placement mode: pick up the nearest fielder (if any)
+            // and drag them instead of bowling/batting.
+            if (canEditFieldNow()) {
+                const idx = findNearestFielderIndex(x, y, 32);
+                if (idx >= 0) {
+                    draggedFielderIndex = idx;
+                    isDraggingFielder = true;
+                }
+                // Tapped empty ground in manual mode — do nothing (must not
+                // accidentally trigger a delivery).
+                return;
+            }
 
             // It's the user's bowling turn: treat this tap as picking a line/length spot.
             if (state.isAIBatting && !state.isBallInPlay) {
@@ -3051,6 +3281,12 @@
             const rect = canvas.getBoundingClientRect();
             const x = canvasX !== undefined ? canvasX : (e.clientX - rect.left) / rect.width * canvas.width;
             const y = canvasY !== undefined ? canvasY : (e.clientY - rect.top) / rect.height * canvas.height;
+
+            if (isDraggingFielder) {
+                updateDraggedFielderPosition(x, y);
+                return;
+            }
+
             if (!isDragging || !canPlayShotNow()) return;
             window._lastDragX = x;
             window._lastDragY = y;
@@ -3058,6 +3294,11 @@
         }
 
         function endDrag() {
+            if (isDraggingFielder) {
+                isDraggingFielder = false;
+                draggedFielderIndex = -1;
+                return;
+            }
             clearDragIndicator();
             if (!isDragging || !canPlayShotNow()) {
                 isDragging = false;
