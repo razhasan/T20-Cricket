@@ -172,6 +172,42 @@
             font-size: 0.6rem;
             color: #aaa;
         }
+        .diff-selector {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 8px 0;
+        }
+        .diff-btn {
+            background: #2a4055;
+            border: 2px solid transparent;
+            padding: 10px 12px;
+            border-radius: 12px;
+            color: #fff;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+            min-width: 70px;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .diff-btn small {
+            display: block;
+            font-size: 0.6rem;
+            color: #aaa;
+        }
+        .diff-btn[data-difficulty="easy"].active {
+            border-color: #4caf50;
+            background: #234b2c;
+        }
+        .diff-btn[data-difficulty="medium"].active {
+            border-color: #f5c842;
+            background: #34556b;
+        }
+        .diff-btn[data-difficulty="hard"].active {
+            border-color: #f44336;
+            background: #4b2626;
+        }
         #selection-screen h2 {
             text-align: center;
             color: #f5c842;
@@ -355,20 +391,10 @@
             transform-origin: 50% 88%;
             transition: left 0.2s, transform 0.15s ease;
         }
-        .figure-batsman.swinging {
-            animation: batSwing 0.4s ease;
-        }
-        @keyframes batSwing {
-            0% {
-                transform: translate(-50%, -66%) rotate(0deg);
-            }
-            40% {
-                transform: translate(-50%, -66%) rotate(-38deg);
-            }
-            100% {
-                transform: translate(-50%, -66%) rotate(0deg);
-            }
-        }
+        /* NOTE: the batsman's body no longer swings as a whole — only the
+           bat itself (the #bat-blade-group inside the SVG) is animated, via
+           JS in animateBatSwing(), so the batsman stays planted at the
+           crease while the bat swings left/right/forward. */
         .figure-bowler {
             left: 48%;
             top: 5%;
@@ -976,6 +1002,12 @@
                 <div class="over-btn active" data-overs="2">2 <small>Overs</small></div>
                 <div class="over-btn" data-overs="5">5 <small>Overs</small></div>
             </div>
+            <div style="text-align:center;font-size:0.9rem;color:#ccc;">Select Difficulty</div>
+            <div class="diff-selector">
+                <div class="diff-btn" data-difficulty="easy">🟢 Easy<small>Score & wicket easy</small></div>
+                <div class="diff-btn active" data-difficulty="medium">🟡 Medium<small>Balanced</small></div>
+                <div class="diff-btn" data-difficulty="hard">🔴 Hard<small>Very tough</small></div>
+            </div>
             <button class="btn" id="btn-select-team" disabled>Select Your Team</button>
             <p style="text-align:center;font-size:0.7rem;color:#888;">Pick a flag, choose overs, then proceed.</p>
         </div>
@@ -1032,7 +1064,7 @@
 
                 <!-- Floating D-Pad (batting) -->
                 <div id="dpad-container">
-                    <div class="dpad-label">MOVE</div>
+                    <div class="dpad-label">BAT</div>
                     <button class="dpad-btn move-btn" id="move-left">◀</button>
                     <button class="dpad-btn move-btn" id="move-right">▶</button>
                     <div class="dpad-label" style="margin-top:8px;">SHOT</div>
@@ -1254,11 +1286,13 @@
                 <path d="M69,84 Q83,93 79,110" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
                 <ellipse cx="79" cy="110" rx="6.5" ry="8" fill="#e8e8e8" stroke="#bbb" stroke-width="1"/>
                 <path d="M75,106 L75,114 M79,105 L79,115 M83,106 L83,114" stroke="#999" stroke-width="1"/>
-                <path d="M31,84 Q15,95 17,116" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
-                <ellipse cx="16" cy="115" rx="7" ry="9" fill="#e8e8e8" stroke="#bbb" stroke-width="1" transform="rotate(-16 16 115)"/>
-                <path d="M12,110 L12,120 M16,109 L16,121 M20,110 L20,120" stroke="#999" stroke-width="1" transform="rotate(-16 16 115)"/>
-                <rect x="8" y="58" width="10" height="68" rx="3" fill="#d9a441" stroke="#8a5a1e" stroke-width="1" transform="rotate(-16 13 60)"/>
-                <rect x="8" y="100" width="10" height="18" rx="3" fill="#5a3c1a" transform="rotate(-16 13 60)"/>
+                <g id="bat-blade-group">
+                    <path d="M31,84 Q15,95 17,116" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
+                    <ellipse cx="16" cy="115" rx="7" ry="9" fill="#e8e8e8" stroke="#bbb" stroke-width="1" transform="rotate(-16 16 115)"/>
+                    <path d="M12,110 L12,120 M16,109 L16,121 M20,110 L20,120" stroke="#999" stroke-width="1" transform="rotate(-16 16 115)"/>
+                    <rect x="8" y="58" width="10" height="68" rx="3" fill="#d9a441" stroke="#8a5a1e" stroke-width="1" transform="rotate(-16 13 60)"/>
+                    <rect x="8" y="100" width="10" height="18" rx="3" fill="#5a3c1a" transform="rotate(-16 13 60)"/>
+                </g>
                 <rect x="44" y="67" width="12" height="14" fill="${SKIN}"/>
                 <circle cx="50" cy="55" r="16" fill="${SKIN}"/>
                 <path d="M32,49 Q32,27 50,27 Q68,27 68,49 L68,56 L32,56 Z" fill="${c.primary}"/>
@@ -1276,7 +1310,7 @@
                 <ellipse cx="72" cy="151" rx="10" ry="5" fill="#222"/>
                 <path d="M38,70 Q50,60 62,70 L66,120 Q50,128 34,120 Z" fill="${c.primary}"/>
                 <path d="M60,75 Q78,55 82,28" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
-                <circle cx="82" cy="26" r="7" fill="#fff"/>
+                <circle id="bowler-ball-hand" cx="82" cy="26" r="7" fill="#fff" style="transition: opacity 0.08s ease;"/>
                 <path d="M40,78 Q24,90 20,105" stroke="${SKIN}" stroke-width="9" fill="none" stroke-linecap="round"/>
                 <circle cx="50" cy="57" r="14" fill="${SKIN}"/>
                 <path d="M36,53 Q36,37 50,37 Q64,37 64,53 L64,49 Q50,43 36,49 Z" fill="${c.primary}"/>
@@ -1340,16 +1374,76 @@
             if (bowlEl) bowlEl.innerHTML = bowlingFigureSVG(state.bowlingTeam || 'pakistan');
             if (keepEl) keepEl.innerHTML = keeperFigureSVG(state.bowlingTeam || 'pakistan');
             if (umpEl && !umpEl.innerHTML) umpEl.innerHTML = umpireFigureSVG();
+            // New figure markup was just injected — a new batsman starts
+            // with the bat centered (no leftover offset from before).
+            state.batOffsetX = 0;
+            applyBatRestTransform();
+        }
+
+        // The batsman's body stays planted at the crease at all times.
+        // Only the bat (and the arm holding it) swings/moves, via this
+        // group's transform attribute — pivoting around the wrist/grip
+        // point (17,116) in the SVG's local coordinate space.
+        function getBatGroup() {
+            return document.getElementById('bat-blade-group');
+        }
+
+        // Re-applies the batsman's current resting bat offset (set by the
+        // MOVE d-pad) with no swing rotation — called whenever the figure is
+        // redrawn or a swing animation finishes.
+        function applyBatRestTransform() {
+            const group = getBatGroup();
+            if (!group) return;
+            const dx = state.batOffsetX || 0;
+            group.setAttribute('transform', `translate(${dx},0) rotate(0 17 116)`);
+        }
+
+        function animateBatSwing(direction) {
+            const group = getBatGroup();
+            if (!group) {
+                showBatTrail(direction || 'middle');
+                return;
+            }
+            const baseX = state.batOffsetX || 0;
+            let lateral = 0;
+            let forward = -16; // bat pokes forward (toward the bowler) on every shot
+            if (direction === 'left') lateral = -22;
+            else if (direction === 'right') lateral = 22;
+
+            const start = performance.now();
+            const duration = 400;
+            (window._batSwingToken = {}); // cancel any in-flight swing
+            const myToken = window._batSwingToken;
+
+            function frame(t) {
+                if (window._batSwingToken !== myToken) return; // superseded
+                const elapsed = t - start;
+                const p = Math.min(elapsed / duration, 1);
+                let k, angle, dx, dy;
+                if (p < 0.4) {
+                    k = p / 0.4;
+                    angle = -46 * k;
+                    dx = baseX + lateral * k;
+                    dy = forward * k;
+                } else {
+                    k = (p - 0.4) / 0.6;
+                    angle = -46 * (1 - k);
+                    dx = baseX + lateral * (1 - k);
+                    dy = forward * (1 - k);
+                }
+                group.setAttribute('transform', `translate(${dx.toFixed(1)},${dy.toFixed(1)}) rotate(${angle.toFixed(1)} 17 116)`);
+                if (p < 1) {
+                    requestAnimationFrame(frame);
+                } else {
+                    applyBatRestTransform();
+                }
+            }
+            requestAnimationFrame(frame);
+            showBatTrail(direction || 'middle');
         }
 
         function triggerBatSwing(direction) {
-            const el = document.getElementById('figure-batsman');
-            if (el) {
-                el.classList.remove('swinging');
-                void el.offsetWidth;
-                el.classList.add('swinging');
-            }
-            showBatTrail(direction || 'middle');
+            animateBatSwing(direction);
         }
 
         function showBatTrail(direction) {
@@ -1482,6 +1576,7 @@
             target: null,
             isMatchOver: false,
             selectedOvers: 2,
+            difficulty: 'medium',
             tossWinner: null,
             userTossCall: null,
             userChoice: null,
@@ -1512,6 +1607,7 @@
             stumpsFallAnim: null,
             userTeam: null,
             batsmanXOffset: 0,
+            batOffsetX: 0,
             innings1Team: null,
             innings2Team: null,
             battingOrder: [],
@@ -1670,10 +1766,18 @@
                 wicketChance += 0.05; dotChance += 0.06; boundaryChance -= 0.03; singleChance -= 0.02;
             }
 
-            wicketChance = Math.max(0.03, Math.min(0.34, wicketChance));
+            // Difficulty: easy makes the AI batter easier to dismiss and
+            // less dangerous; hard makes the AI batter harder to dismiss
+            // and more dangerous with the bat.
+            const diff = getDiff();
+            wicketChance *= diff.aiWicketMult;
+            boundaryChance *= diff.aiBoundaryMult;
+            sixChance *= diff.aiSixMult;
+
+            wicketChance = Math.max(0.03, Math.min(0.45, wicketChance));
             dotChance = Math.max(0.10, Math.min(0.45, dotChance));
-            boundaryChance = Math.max(0.03, Math.min(0.28, boundaryChance));
-            sixChance = Math.max(0.01, Math.min(0.14, sixChance));
+            boundaryChance = Math.max(0.03, Math.min(0.32, boundaryChance));
+            sixChance = Math.max(0.01, Math.min(0.18, sixChance));
             singleChance = Math.max(0.15, singleChance);
 
             const r = Math.random();
@@ -1781,6 +1885,52 @@
                 document.querySelectorAll('.over-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 state.selectedOvers = parseInt(this.dataset.overs);
+            });
+        });
+
+        // ---------- DIFFICULTY SELECTION ----------
+        // Easy = user finds it easy to score runs (batting) AND easy to take
+        // wickets (bowling) — i.e. the AI opponent is weak.
+        // Hard  = the AI opponent is strong: hard for the user to score runs
+        // and hard to take wickets, in both roles.
+        const DIFFICULTY = {
+            easy: {
+                // Applied when the USER is bowling (AI batting) — multiplies
+                // the AI's dismissal chance up, and trims its boundary/six power.
+                aiWicketMult: 1.45,
+                aiBoundaryMult: 0.80,
+                aiSixMult: 0.75,
+                // Applied when the USER is batting — trims the chance the
+                // user gets bowled/LBW or caught, and boosts run-scoring.
+                userOutMult: 0.55,
+                userCatchMult: 0.65,
+                userRunBonus: 1,
+            },
+            medium: {
+                aiWicketMult: 1.0,
+                aiBoundaryMult: 1.0,
+                aiSixMult: 1.0,
+                userOutMult: 1.0,
+                userCatchMult: 1.0,
+                userRunBonus: 0,
+            },
+            hard: {
+                aiWicketMult: 0.6,
+                aiBoundaryMult: 1.3,
+                aiSixMult: 1.4,
+                userOutMult: 1.6,
+                userCatchMult: 1.35,
+                userRunBonus: -1,
+            },
+        };
+        function getDiff() {
+            return DIFFICULTY[state.difficulty] || DIFFICULTY.medium;
+        }
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                state.difficulty = this.dataset.difficulty;
             });
         });
 
@@ -2561,12 +2711,22 @@
             const el = document.getElementById('figure-bowler');
             if (!el) return;
             el.classList.remove('run-up-1', 'run-up-2', 'delivering');
+            // A fresh ball is back in the bowler's hand as the run-up begins.
+            const handBall = document.getElementById('bowler-ball-hand');
+            if (handBall) handBall.style.opacity = '1';
             void el.offsetWidth;
             el.classList.add('run-up-1');
             setTimeout(() => { el.classList.remove('run-up-1');
                 el.classList.add('run-up-2'); }, 120);
-            setTimeout(() => { el.classList.remove('run-up-2');
-                el.classList.add('delivering'); }, 240);
+            setTimeout(() => {
+                el.classList.remove('run-up-2');
+                el.classList.add('delivering');
+                // The ball leaves the bowler's hand right as it's released —
+                // hide the "ball in hand" icon so it doesn't look like there
+                // are two balls on screen at once.
+                const hb = document.getElementById('bowler-ball-hand');
+                if (hb) hb.style.opacity = '0';
+            }, 240);
             setTimeout(() => { el.classList.remove('delivering'); }, 520);
         }
 
@@ -2984,7 +3144,11 @@
             const ballsRemaining = totalBalls - state.balls;
             let catchChance = 0.80 + (state.balls / totalBalls) * 0.15;
             if (ballsRemaining <= 3) catchChance += 0.03;
-            catchChance = Math.min(catchChance, 0.97);
+            // Difficulty: easy = fielders drop more (lower catch chance for the
+            // user), hard = fielders are razor-sharp (higher catch chance).
+            const diff = getDiff();
+            catchChance *= diff.userCatchMult;
+            catchChance = Math.max(0.35, Math.min(0.97, catchChance));
             const dropChance = 1 - catchChance;
 
             let isDrop = false;
@@ -2999,7 +3163,8 @@
                 (state.impactLength === 'good' || state.impactLength === 'full');
 
             if (isNearStumps && (timing === 'early' || timing === 'late') && !isLoft) {
-                const bowledChance = 0.25;
+                let bowledChance = 0.25 * diff.userOutMult;
+                bowledChance = Math.max(0.08, Math.min(0.55, bowledChance));
                 if (Math.random() < bowledChance) {
                     isOut = true;
                     outType = Math.random() < 0.5 ? 'Bowled' : 'LBW';
@@ -3033,19 +3198,24 @@
                     triggerStumpsFall();
                 }
             } else {
-                // Runs — placed in a clear gap (away from the nearest fielder)
+                // Runs — placed in a clear gap (away from the nearest fielder).
+                // Difficulty nudges the thresholds: easy makes it easier to
+                // clear the rope / find the gap, hard makes it harder.
                 if (isLoft) {
                     if (timing === 'perfect') {
-                        runs = (Math.random() < 0.6) ? 6 : 4;
+                        const sixThreshold = Math.max(0.25, Math.min(0.85, 0.6 + diff.userRunBonus * 0.15));
+                        runs = (Math.random() < sixThreshold) ? 6 : 4;
                         showResultBanner(runs === 6 ? 'SIX!' : 'FOUR!', runs === 6 ? 'six' : 'four');
                     } else if (timing === 'early' || timing === 'late') {
-                        runs = (Math.random() < 0.3) ? 4 : (Math.random() < 0.6 ? 2 : 0);
+                        const fourThreshold = Math.max(0.1, Math.min(0.55, 0.3 + diff.userRunBonus * 0.1));
+                        const twoThreshold = Math.max(0.35, Math.min(0.75, 0.6 + diff.userRunBonus * 0.05));
+                        runs = (Math.random() < fourThreshold) ? 4 : (Math.random() < twoThreshold ? 2 : 0);
                         if (runs === 4) showResultBanner('FOUR!', 'four');
                     } else {
                         runs = 0;
                     }
                 } else {
-                    const gapFactor = nearestDist / 80;
+                    const gapFactor = (nearestDist / 80) * (1 + diff.userRunBonus * 0.15);
                     if (timing === 'perfect') {
                         if (gapFactor > 1.5) runs = 4;
                         else if (gapFactor > 1.0) runs = 3;
@@ -3425,21 +3595,17 @@
 
         document.getElementById('move-left').addEventListener('click', function() {
             if (state.isMatchOver || state.isAIBatting) return;
-            state.batsmanXOffset = Math.max(-20, state.batsmanXOffset - 4);
-            const el = document.getElementById('figure-batsman');
-            if (el) {
-                el.style.left = (48 + state.batsmanXOffset * 0.2) + '%';
-            }
-            gameMsg.textContent = 'Batsman moved left';
+            // The batsman stays put at the crease — this shifts the bat's
+            // guard position left, not the batsman himself.
+            state.batOffsetX = Math.max(-16, (state.batOffsetX || 0) - 5);
+            applyBatRestTransform();
+            gameMsg.textContent = 'Bat moved left';
         });
         document.getElementById('move-right').addEventListener('click', function() {
             if (state.isMatchOver || state.isAIBatting) return;
-            state.batsmanXOffset = Math.min(20, state.batsmanXOffset + 4);
-            const el = document.getElementById('figure-batsman');
-            if (el) {
-                el.style.left = (48 + state.batsmanXOffset * 0.2) + '%';
-            }
-            gameMsg.textContent = 'Batsman moved right';
+            state.batOffsetX = Math.min(16, (state.batOffsetX || 0) + 5);
+            applyBatRestTransform();
+            gameMsg.textContent = 'Bat moved right';
         });
 
         function processUserShot(endX, endY) {
