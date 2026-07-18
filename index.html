@@ -1729,15 +1729,33 @@
                 if (ctx) return;
                 const AC = window.AudioContext || window.webkitAudioContext;
                 if (!AC) return;
-                ctx = new AC();
-                master = ctx.createGain();
-                master.gain.value = 0.55;
-                master.connect(ctx.destination);
+                try {
+                    ctx = new AC();
+                    master = ctx.createGain();
+                    master.gain.value = muted ? 0 : 0.55;
+                    master.connect(ctx.destination);
+                } catch (e) {
+                    ctx = null;
+                    master = null;
+                }
             }
 
             function resume() {
                 if (ctx && ctx.state === 'suspended') return ctx.resume();
                 return Promise.resolve();
+            }
+
+            function isRunning() { return !!(ctx && ctx.state === 'running'); }
+
+            // Ensure audio is initialized + running, then invoke cb(). If the
+            // context is already running this happens synchronously (no
+            // audible latency); if it's suspended/starting up, cb() runs the
+            // moment resume() succeeds instead of silently doing nothing.
+            function ensureAudio(cb) {
+                init();
+                if (!ctx) return;
+                if (ctx.state === 'running') { cb(); return; }
+                resume().then(() => { if (ctx && ctx.state === 'running') cb(); });
             }
 
             function noiseBuffer(duration) {
@@ -1800,38 +1818,27 @@
             }
 
             function playWhoosh() { if (muted) return;
-                init();
-                resume();
-                if (!ctx) return;
-                noiseHit(now(), 0.28, 2200, 'bandpass', 0.20, 500); }
+                ensureAudio(() => noiseHit(now(), 0.28, 2200, 'bandpass', 0.20, 500)); }
 
             function playBatHit() { if (muted) return;
-                init();
-                resume();
-                if (!ctx) return;
-                const t = now();
-                noiseHit(t, 0.09, 3500, 'bandpass', 0.35, 1200);
-                tone(900, t, 0.08, 'square', 0.12, 300); }
+                ensureAudio(() => {
+                    const t = now();
+                    noiseHit(t, 0.09, 3500, 'bandpass', 0.35, 1200);
+                    tone(900, t, 0.08, 'square', 0.12, 300);
+                }); }
 
             function playFour() { if (muted) return;
-                init();
-                resume();
-                if (!ctx) return;
-                crowd(0.6); }
+                ensureAudio(() => crowd(0.6)); }
 
             function playSix() { if (muted) return;
-                init();
-                resume();
-                if (!ctx) return;
-                crowd(1.0); }
+                ensureAudio(() => crowd(1.0)); }
 
             function playWicket() { if (muted) return;
-                init();
-                resume();
-                if (!ctx) return;
-                const t = now();
-                for (let i = 0; i < 4; i++) { noiseHit(t + i * 0.05, 0.05, 4000 + i * 400, 'highpass', 0.22); }
-                setTimeout(() => crowd(0.75), 180); }
+                ensureAudio(() => {
+                    const t = now();
+                    for (let i = 0; i < 4; i++) { noiseHit(t + i * 0.05, 0.05, 4000 + i * 400, 'highpass', 0.22); }
+                    setTimeout(() => crowd(0.75), 180);
+                }); }
 
             function playByBannerType(type) {
                 if (type === 'four') playFour();
@@ -1843,19 +1850,20 @@
 
             function startWelcomeMusic() {
                 if (muted) return;
-                init();
-                resume();
-                if (!ctx || musicTimer) return;
-                let i = 0;
-                const step = () => {
-                    if (muted) return;
-                    const t = now();
-                    tone(MELODY[i % MELODY.length], t, 0.5, 'triangle', 0.05);
-                    tone(MELODY[i % MELODY.length] / 2, t, 0.9, 'sine', 0.03);
-                    i++;
-                };
-                step();
-                musicTimer = setInterval(step, 550);
+                if (musicTimer) return;
+                ensureAudio(() => {
+                    if (musicTimer) return;
+                    let i = 0;
+                    const step = () => {
+                        if (muted) return;
+                        const t = now();
+                        tone(MELODY[i % MELODY.length], t, 0.5, 'triangle', 0.05);
+                        tone(MELODY[i % MELODY.length] / 2, t, 0.9, 'sine', 0.03);
+                        i++;
+                    };
+                    step();
+                    musicTimer = setInterval(step, 550);
+                });
             }
 
             function stopWelcomeMusic() { if (musicTimer) { clearInterval(musicTimer);
@@ -1872,6 +1880,8 @@
             return {
                 init,
                 resume,
+                isRunning,
+                ensureAudio,
                 playWhoosh,
                 playBatHit,
                 playFour,
@@ -1894,16 +1904,28 @@
         }
 
         function unlockAudioOnce() {
-            if (audioUnlocked) return;
-            audioUnlocked = true;
-            SoundFX.init();
-            SoundFX.resume().then(() => { if (!isOnGameScreen()) SoundFX.startWelcomeMusic(); });
-            if (!isOnGameScreen()) SoundFX.startWelcomeMusic();
-            ['pointerdown', 'touchend', 'mousedown', 'keydown', 'click'].forEach(evt =>
-                document.removeEventListener(evt, unlockAudioOnce, true));
+            SoundFX.ensureAudio(() => {
+                // Only declare success (and stop listening for more gestures)
+                // once the context is genuinely running — a single failed
+                // attempt (e.g. a browser quirk) shouldn't permanently give up.
+                if (audioUnlocked) return;
+                audioUnlocked = true;
+                if (!isOnGameScreen()) SoundFX.startWelcomeMusic();
+                ['pointerdown', 'touchend', 'mousedown', 'keydown', 'click'].forEach(evt =>
+                    document.removeEventListener(evt, unlockAudioOnce, true));
+            });
         }
         ['pointerdown', 'touchend', 'mousedown', 'keydown', 'click'].forEach(evt =>
             document.addEventListener(evt, unlockAudioOnce, true));
+
+        // Mobile browsers frequently re-suspend the AudioContext when the tab
+        // is backgrounded, the screen locks, or the app loses focus. Try to
+        // resume as soon as we're back, so sound doesn't stay dead all day.
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) SoundFX.resume();
+        });
+        window.addEventListener('focus', () => SoundFX.resume());
+        window.addEventListener('pageshow', () => SoundFX.resume());
 
         // Mute button
         (function addMuteButton() {
@@ -3762,6 +3784,11 @@
                 bat.balls = (bat.balls || 0) + 1;
             }
 
+            let catcherName = null;
+            let dismissType = null;
+            let isGolden = false;
+            let isDuck = false;
+
             if (isOut) {
                 state.wickets += 1;
                 if (bat) {
@@ -3770,15 +3797,21 @@
                     bat.dismissalDetail = dismissalType || outType || 'Wicket';
                     bat.catcher = catcher || null;
                     bat.bowler = state.currentBowler ? state.currentBowler.name : 'Bowler';
+                    isGolden = (bat.runs === 0 && bat.balls === 1);
+                    isDuck = (bat.runs === 0 && bat.balls > 1);
+                    catcherName = catcher || null;
+                    dismissType = outType || 'Wicket';
+                    state.lastDismissalType = dismissType;
+                    state.lastCatcher = catcherName;
                     state.dismissalRecords.push({
                         batsman: bat.name,
                         runs: bat.runs || 0,
                         balls: bat.balls || 0,
-                        dismissal: outType || 'Wicket',
-                        bowler: state.currentBowler ? state.currentBowler.name : 'Bowler',
-                        catcher: catcher || null,
-                        isGoldenDuck: (bat.runs === 0 && bat.balls === 1),
-                        isDuck: (bat.runs === 0 && bat.balls > 1)
+                        dismissal: dismissType,
+                        bowler: bat.bowler,
+                        catcher: catcherName,
+                        isGoldenDuck: isGolden,
+                        isDuck: isDuck
                     });
                 }
                 if (state.currentBowler) {
@@ -3803,28 +3836,12 @@
             state.ballReady = false;
             state.shotPlayed = false;
 
-            if (bat) bat.balls = (bat.balls || 0) + 1;
-
-            if (state.wickets >= 10 || state.balls >= state.selectedOvers * 6) {
-                showResultBanner('Innings Complete', 'info');
-                endInnings();
-                return;
-            }
-            if (state.currentInnings === 2 && state.target !== null && state.runs >= state.target) {
-                gameMsg.textContent = state.isAIBatting ? '🏆 Target chased! AI wins!' : '🏆 Target chased! You win!';
-                endMatch(state.battingTeam);
-                return;
-            }
-
+            // Schedule the TV wicket card exactly once, here, regardless of
+            // whether this ball also ends the innings/match — this is the
+            // single source of truth for wicket handling (previously the
+            // AI-batting path duplicated this, which caused a leftover timer
+            // that could pop the card up after the result screen appeared).
             if (isOut && bat) {
-                const isGolden = (bat.runs === 0 && bat.balls === 1);
-                const isDuck = (bat.runs === 0 && bat.balls > 1);
-                const bowlerName = state.currentBowler ? state.currentBowler.name : 'Bowler';
-                const catcherName = catcher || null;
-                const dismissType = outType || 'Wicket';
-                state.lastDismissalType = dismissType;
-                state.lastCatcher = catcherName;
-
                 const batFigure = document.getElementById('figure-batsman');
                 if (batFigure) {
                     batFigure.classList.add('walking');
@@ -3838,7 +3855,7 @@
                 window._wicketCardDelay = setTimeout(() => {
                     showWicketCard(
                         bat.name,
-                        bowlerName,
+                        bat.bowler,
                         bat.runs || 0,
                         bat.balls || 0,
                         dismissType,
@@ -3847,14 +3864,35 @@
                         isDuck
                     );
                 }, WICKET_CARD_DELAY);
-
-                updateScoreboard();
-                drawPitch();
-                return;
             }
 
             updateScoreboard();
             drawPitch();
+
+            const inningsOver = (state.wickets >= 10 || state.balls >= state.selectedOvers * 6);
+            const chaseDone = (state.currentInnings === 2 && state.target !== null && state.runs >= state.target);
+
+            if (inningsOver) {
+                // Wait for the wicket card (if this was the final wicket) or
+                // just a short beat (if it was a normal final ball) before
+                // switching to the innings-break / final scorecard screen.
+                const endDelay = isOut ? (WICKET_CARD_DELAY + 900) : 1000;
+                showResultBanner('Innings Complete', 'info');
+                setTimeout(() => { endInnings(); }, endDelay);
+                return;
+            }
+            if (chaseDone) {
+                gameMsg.textContent = state.isAIBatting ? '🏆 Target chased! AI wins!' : '🏆 Target chased! You win!';
+                const endDelay = isOut ? (WICKET_CARD_DELAY + 900) : 1000;
+                setTimeout(() => { endMatch(state.battingTeam); }, endDelay);
+                return;
+            }
+
+            if (isOut && bat) {
+                // Wicket card already scheduled above; continueAfterWicket()
+                // (fired when the card auto-closes) resumes play.
+                return;
+            }
 
             if (state.isAIBowling && !state.isMatchOver) {
                 document.getElementById('bat-controls-container').style.display = 'none';
@@ -4337,60 +4375,9 @@
             drawPitch();
 
             if (outcome.isOut) {
-                const bat = state.battingOrder[state.currentBatsmanIdx];
-                if (bat) {
-                    bat.balls = (bat.balls || 0) + 1;
-                }
-                const batsmanName = bat ? bat.name : 'AI Batsman';
                 const bowlerName = state.currentBowler ? state.currentBowler.name : 'Bowler';
-                const runsScored = bat ? bat.runs || 0 : 0;
-                const ballsFaced = bat ? bat.balls || 1 : 1;
-                const isGolden = (runsScored === 0 && ballsFaced === 1);
-                const isDuck = (runsScored === 0 && ballsFaced > 1);
-                const dismissType = outcome.outType || 'Wicket';
-                const catcherName = dismissType === 'Caught' ? randomFielderName(bowlerName) : null;
-
-                const batFigure = document.getElementById('figure-batsman');
-                if (batFigure) {
-                    batFigure.classList.add('walking');
-                    setTimeout(() => {
-                        batFigure.classList.remove('walking');
-                        updateFigures();
-                    }, 3000);
-                }
-
-                clearTimeout(window._wicketCardDelay);
-                window._wicketCardDelay = setTimeout(() => {
-                    showWicketCard(
-                        batsmanName,
-                        bowlerName,
-                        runsScored,
-                        ballsFaced,
-                        dismissType,
-                        catcherName,
-                        isGolden,
-                        isDuck
-                    );
-                }, WICKET_CARD_DELAY);
-
-                if (bat) {
-                    bat.isOut = true;
-                    bat.dismissal = dismissType;
-                    bat.dismissalDetail = dismissType;
-                    bat.bowler = bowlerName;
-                    state.dismissalRecords.push({
-                        batsman: batsmanName,
-                        runs: runsScored,
-                        balls: ballsFaced,
-                        dismissal: dismissType,
-                        bowler: bowlerName,
-                        catcher: catcherName,
-                        isGoldenDuck: isGolden,
-                        isDuck: isDuck
-                    });
-                }
-
-                finishBattingTurn(outcome.runs, true, outcome.outType, false, null, outcome.outType);
+                const catcherName = outcome.outType === 'Caught' ? randomFielderName(bowlerName) : null;
+                finishBattingTurn(outcome.runs, true, outcome.outType, false, catcherName, outcome.outType);
             } else {
                 finishBattingTurn(outcome.runs, false, '', false, null, '');
             }
