@@ -1999,6 +1999,75 @@
             return arr;
         }
 
+        // Auto-pick a balanced XI (1 WK, up to 4 BOWL, up to 3 AR, up to 5 BAT,
+        // filled out with whoever remains) from any given squad list.
+        function autoPickXIFromSquad(squad) {
+            const byRole = role => squad.filter(p => p.role === role);
+            const wk = shuffleArray(byRole('WK').slice());
+            const bowl = shuffleArray(byRole('BOWL').slice());
+            const ar = shuffleArray(byRole('AR').slice());
+            const bat = shuffleArray(byRole('BAT').slice());
+            const pick = [];
+            if (wk[0]) pick.push(wk[0]);
+            pick.push(...bowl.slice(0, 4));
+            pick.push(...ar.slice(0, 3));
+            pick.push(...bat.slice(0, 5));
+            const remaining = shuffleArray(squad.filter(p => !pick.includes(p)));
+            while (pick.length < 11 && remaining.length) pick.push(remaining.shift());
+            return pick.slice(0, 11).map(p => ({ ...p }));
+        }
+
+        // Build a full batting order (openers first, then a sensible middle/lower
+        // order) for a team the user did NOT pick openers for, i.e. the AI/opponent.
+        function buildOpponentBattingOrder(team) {
+            const xi = autoPickXIFromSquad(PLAYERS[team] || []);
+            const bats = xi.filter(p => p.role === 'BAT');
+            let openers;
+            if (bats.length >= 2) {
+                openers = shuffleArray(bats.slice()).slice(0, 2);
+            } else {
+                const nonBowl = shuffleArray(xi.filter(p => p.role !== 'BOWL'));
+                openers = nonBowl.length >= 2 ? nonBowl.slice(0, 2) : xi.slice(0, 2);
+            }
+            const openerNames = openers.map(p => p.name);
+            const rest = xi.filter(p => !openerNames.includes(p.name));
+            const orderScore = p => (p.role === 'BAT' ? 0 : p.role === 'AR' ? 1 : p.role === 'WK' ? 2 : 3);
+            rest.sort((a, b) => orderScore(a) - orderScore(b));
+            return [...openers, ...rest].map(p => ({ ...p, runs: 0, balls: 0, isOut: false, dismissal: null }));
+        }
+
+        // Auto-select the AI's bowler for a new over, avoiding the same bowler
+        // going twice in a row where possible.
+        function pickAIBowler() {
+            if (!state.bowlingOrder || state.bowlingOrder.length === 0) return;
+            const prevName = state.currentBowler ? state.currentBowler.name : null;
+            let candidates = state.bowlingOrder.filter(p => p.name !== prevName);
+            if (candidates.length === 0) candidates = state.bowlingOrder;
+            const pick = candidates[Math.floor(Math.random() * candidates.length)];
+            state.currentBowler = { ...pick };
+            if (!state.bowlingStats[pick.name]) {
+                state.bowlingStats[pick.name] = { overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
+            }
+            const disp = document.getElementById('bowler-current-display');
+            if (disp) {
+                const stats = state.bowlingStats[pick.name] || {};
+                const oversB = Math.floor((stats.balls || 0) / 6) + '.' + ((stats.balls || 0) % 6);
+                disp.textContent = `🎯 ${pick.emoji} ${pick.name}  ${oversB}ov ${stats.runs||0}r ${stats.wickets||0}w`;
+            }
+        }
+
+        // Pick a random fielder name (from the fielding team's roster) to credit
+        // for a catch. Excludes the current bowler so it doesn't look like the
+        // bowler caught their own delivery.
+        function randomFielderName(excludeName) {
+            const roster = (state.bowlingTeam === state.userTeam) ? state.playingXI : (PLAYERS[state.bowlingTeam] ||
+            []);
+            if (!roster || roster.length === 0) return 'Fielder';
+            const pool = roster.filter(p => p.name !== excludeName);
+            const list = pool.length ? pool : roster;
+            return list[Math.floor(Math.random() * list.length)].name;
+        }
+
         function random(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
         function showScreen(id) {
@@ -2172,7 +2241,7 @@
 
         document.getElementById('btn-selection-done').addEventListener('click', function() {
             if (state.playingXI.length !== 11) return;
-            showOpenerScreen();
+            showTossScreen();
         });
 
         // ---------- OPENER ----------
@@ -2220,7 +2289,7 @@
             document.getElementById('btn-openers-done').disabled = openerSelection.length !== 2;
         }
 
-        document.getElementById('btn-opener-back').addEventListener('click', () => showScreen('selection-screen'));
+        document.getElementById('btn-opener-back').addEventListener('click', () => showTossScreen());
 
         document.getElementById('btn-openers-done').addEventListener('click', function() {
             if (openerSelection.length !== 2) return;
@@ -2233,7 +2302,7 @@
                 ...rest.map(p => ({ ...p, runs: 0, balls: 0, isOut: false, dismissal: null }))
             ];
             state.currentBatsmanIdx = 0;
-            showTossScreen();
+            finalizeInningsStart();
         });
 
         // ---------- TOSS (unchanged) ----------
@@ -2319,65 +2388,123 @@
             state.innings2Team = state.bowlingTeam;
             updateFigures();
 
-            state.currentInnings = 1;
-            state.runs = 0;
-            state.wickets = 0;
-            state.balls = 0;
-            state.overs = 0;
-            state.target = null;
-            state.isMatchOver = false;
-            state.innings1 = { runs: 0, wickets: 0, balls: 0, overs: 0 };
-            state.innings2 = { runs: 0, wickets: 0, balls: 0, overs: 0 };
-            state.currentOverIndex = 0;
-            state.ballsInOver = 0;
-            state.bowlingOrder = [];
-            state.dismissalRecords = [];
-            state.bowlingStats = {};
-            state.lastCatcher = null;
-            state.lastDismissalType = null;
+            state.startingInnings = 1;
 
-            const openerNames = [state.openers.striker.name, state.openers.nonStriker.name];
-            const rest = state.playingXI.filter(p => !openerNames.includes(p.name));
-            state.battingOrder = [
-                { ...state.openers.striker, runs: 0, balls: 0, isOut: false, dismissal: null },
-                { ...state.openers.nonStriker, runs: 0, balls: 0, isOut: false, dismissal: null },
-                ...rest.map(p => ({ ...p, runs: 0, balls: 0, isOut: false, dismissal: null }))
-            ];
-            state.currentBatsmanIdx = 0;
-
-            const bowlingTeamRoster = (state.bowlingTeam === state.userTeam) ? state.playingXI : (PLAYERS[state
-                .bowlingTeam] || []);
-            bowlingTeamRoster.forEach(p => {
-                state.bowlingStats[p.name] = { overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
-            });
-
-            selectBowlers();
-            startNewOver();
-            updateScoreboard();
-            showScreen('game-screen');
-            startPowerplayForInnings();
-            drawPitch();
-
-            if (state.isAIBowling) {
-                document.getElementById('bowl-controls-container').style.display = 'none';
-                setBowlDpadEnabled(false);
-                document.getElementById('bat-controls-container').style.display = 'block';
-                setDpadEnabled(true);
-                document.getElementById('field-controls-container').style.display = 'none';
-                statusBanner.textContent = '🟢 YOU ARE BATTING';
-                statusBanner.className = 'batting';
-                gameMsg.textContent = 'AI is bowling. Watch the ball and tap to bat!';
-                setTimeout(() => aiBowling(), 1200);
+            if (state.battingTeam === state.userTeam) {
+                // Your team is batting first — pick your openers now.
+                showOpenerScreen();
             } else {
-                document.getElementById('bat-controls-container').style.display = 'none';
-                setDpadEnabled(false);
-                statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
-                statusBanner.className = 'bowling';
-                // Show bowler modal at start of first over
-                showBowlerModal();
-                gameMsg.textContent = 'Select a bowler for this over from the modal.';
+                // Opponent bats first — auto-build their batting order.
+                state.battingOrder = buildOpponentBattingOrder(state.battingTeam);
+                state.currentBatsmanIdx = 0;
+                finalizeInningsStart();
             }
         });
+
+        // ================================================================
+        //  FINALIZE INNINGS START
+        //  Shared by: toss-proceed (innings 1) and endInnings (innings 2),
+        //  called either immediately (opponent batting) or after the opener
+        //  screen is confirmed (user's team batting).
+        // ================================================================
+        function finalizeInningsStart() {
+            if (state.battingTeam !== state.userTeam && (!state.battingOrder || !state.battingOrder.length)) {
+                state.battingOrder = buildOpponentBattingOrder(state.battingTeam);
+                state.currentBatsmanIdx = 0;
+            }
+
+            if (state.startingInnings === 1) {
+                state.currentInnings = 1;
+                state.runs = 0;
+                state.wickets = 0;
+                state.balls = 0;
+                state.overs = 0;
+                state.target = null;
+                state.isMatchOver = false;
+                state.innings1 = { runs: 0, wickets: 0, balls: 0, overs: 0 };
+                state.innings2 = { runs: 0, wickets: 0, balls: 0, overs: 0 };
+                state.currentOverIndex = 0;
+                state.ballsInOver = 0;
+                state.bowlingOrder = [];
+                state.dismissalRecords = [];
+                state.bowlingStats = {};
+                state.lastCatcher = null;
+                state.lastDismissalType = null;
+
+                const bowlingTeamRoster = (state.bowlingTeam === state.userTeam) ? state.playingXI : (PLAYERS[state
+                    .bowlingTeam] || []);
+                bowlingTeamRoster.forEach(p => {
+                    state.bowlingStats[p.name] = { overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
+                });
+
+                selectBowlers();
+                startNewOver();
+                updateScoreboard();
+                showScreen('game-screen');
+                startPowerplayForInnings();
+                drawPitch();
+
+                if (state.isAIBowling) {
+                    document.getElementById('bowl-controls-container').style.display = 'none';
+                    setBowlDpadEnabled(false);
+                    document.getElementById('bat-controls-container').style.display = 'block';
+                    setDpadEnabled(true);
+                    document.getElementById('field-controls-container').style.display = 'none';
+                    statusBanner.textContent = '🟢 YOU ARE BATTING';
+                    statusBanner.className = 'batting';
+                    gameMsg.textContent = 'AI is bowling. Watch the ball and tap to bat!';
+                    setTimeout(() => aiBowling(), 1200);
+                } else {
+                    document.getElementById('bat-controls-container').style.display = 'none';
+                    setDpadEnabled(false);
+                    statusBanner.textContent = '🔴 YOUR TURN TO BOWL';
+                    statusBanner.className = 'bowling';
+                    // Show bowler modal at start of first over
+                    showBowlerModal();
+                    gameMsg.textContent = 'Select a bowler for this over from the modal.';
+                }
+            } else {
+                state.dismissalRecords = [];
+
+                const bowlingTeamRoster = (state.bowlingTeam === state.userTeam) ? state.playingXI : (PLAYERS[state
+                    .bowlingTeam] || []);
+                bowlingTeamRoster.forEach(p => {
+                    state.bowlingStats[p.name] = { overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
+                });
+
+                selectBowlers();
+                state.currentOverIndex = 0;
+                state.ballsInOver = 0;
+                startNewOver();
+
+                gameMsg.textContent = `Innings 1 over! Target: ${state.target}`;
+                updateScoreboard();
+                startPowerplayForInnings();
+                drawPitch();
+                state.ball = null;
+                state.ballReady = false;
+                state.shotPlayed = false;
+
+                if (state.isAIBowling) {
+                    document.getElementById('bowl-controls-container').style.display = 'none';
+                    setBowlDpadEnabled(false);
+                    document.getElementById('bat-controls-container').style.display = 'block';
+                    setDpadEnabled(true);
+                    document.getElementById('field-controls-container').style.display = 'none';
+                    statusBanner.textContent = '🟢 YOU ARE BATTING';
+                    statusBanner.className = 'batting';
+                    gameMsg.textContent = 'AI is bowling. Watch the ball and tap to bat!';
+                    setTimeout(() => aiBowling(), 1500);
+                } else {
+                    document.getElementById('bat-controls-container').style.display = 'none';
+                    setDpadEnabled(false);
+                    statusBanner.textContent = '🔴 YOU ARE BOWLING';
+                    statusBanner.className = 'bowling';
+                    showBowlerModal();
+                    gameMsg.textContent = 'Select a bowler for this over from the modal.';
+                }
+            }
+        }
 
         document.getElementById('toss-back-menu').addEventListener('click', () => showScreen('menu-screen'));
 
@@ -2517,6 +2644,8 @@
                 document.getElementById('field-controls-container').style.display = 'block';
                 document.getElementById('bowl-controls-container').style.display = 'block';
                 setBowlDpadEnabled(true);
+            } else if (state.isAIBowling && !state.isMatchOver) {
+                pickAIBowler();
             }
             state.ballsInOver = 0;
             updateScoreboard();
@@ -3158,6 +3287,11 @@
             requestAnimationFrame(step);
         }
 
+        // Wait for the stumps-fall + batsman walk-off animation to finish
+        // before popping up the TV-style wicket card, instead of showing it
+        // the instant the wicket falls.
+        const WICKET_CARD_DELAY = 2400;
+
         // ================================================================
         //  WICKET CARD (TV Style)
         // ================================================================
@@ -3481,7 +3615,7 @@
             if (isFielded && effectiveDist < catchThreshold) {
                 landingX = state.fielderPositions[nearestIdx].x;
                 landingY = state.fielderPositions[nearestIdx].y;
-                catcher = state.fielderPositions[nearestIdx].catcherName || 'Fielder';
+                catcher = randomFielderName(state.currentBowler ? state.currentBowler.name : null);
                 if (Math.random() < dropChance) {
                     isDrop = true;
                     isOut = false;
@@ -3639,17 +3773,6 @@
                 state.lastDismissalType = dismissType;
                 state.lastCatcher = catcherName;
 
-                showWicketCard(
-                    bat.name,
-                    bowlerName,
-                    bat.runs || 0,
-                    bat.balls || 0,
-                    dismissType,
-                    catcherName,
-                    isGolden,
-                    isDuck
-                );
-
                 const batFigure = document.getElementById('figure-batsman');
                 if (batFigure) {
                     batFigure.classList.add('walking');
@@ -3658,6 +3781,20 @@
                         updateFigures();
                     }, 3000);
                 }
+
+                clearTimeout(window._wicketCardDelay);
+                window._wicketCardDelay = setTimeout(() => {
+                    showWicketCard(
+                        bat.name,
+                        bowlerName,
+                        bat.runs || 0,
+                        bat.balls || 0,
+                        dismissType,
+                        catcherName,
+                        isGolden,
+                        isDuck
+                    );
+                }, WICKET_CARD_DELAY);
 
                 updateScoreboard();
                 drawPitch();
@@ -4189,17 +4326,7 @@
                 const isGolden = (runsScored === 0 && ballsFaced === 1);
                 const isDuck = (runsScored === 0 && ballsFaced > 1);
                 const dismissType = outcome.outType || 'Wicket';
-
-                showWicketCard(
-                    batsmanName,
-                    bowlerName,
-                    runsScored,
-                    ballsFaced,
-                    dismissType,
-                    null,
-                    isGolden,
-                    isDuck
-                );
+                const catcherName = dismissType === 'Caught' ? randomFielderName(bowlerName) : null;
 
                 const batFigure = document.getElementById('figure-batsman');
                 if (batFigure) {
@@ -4209,6 +4336,20 @@
                         updateFigures();
                     }, 3000);
                 }
+
+                clearTimeout(window._wicketCardDelay);
+                window._wicketCardDelay = setTimeout(() => {
+                    showWicketCard(
+                        batsmanName,
+                        bowlerName,
+                        runsScored,
+                        ballsFaced,
+                        dismissType,
+                        catcherName,
+                        isGolden,
+                        isDuck
+                    );
+                }, WICKET_CARD_DELAY);
 
                 if (bat) {
                     bat.isOut = true;
@@ -4221,7 +4362,7 @@
                         balls: ballsFaced,
                         dismissal: dismissType,
                         bowler: bowlerName,
-                        catcher: null,
+                        catcher: catcherName,
                         isGoldenDuck: isGolden,
                         isDuck: isDuck
                     });
@@ -4315,52 +4456,17 @@
                 state.overs = 0;
                 state.isAIBowling = !state.isAIBowling;
                 state.isAIBatting = !state.isAIBatting;
-                const openerNames = [state.openers.striker.name, state.openers.nonStriker.name];
-                const rest = state.playingXI.filter(p => !openerNames.includes(p.name));
-                state.battingOrder = [
-                    { ...state.openers.striker, runs: 0, balls: 0, isOut: false, dismissal: null },
-                    { ...state.openers.nonStriker, runs: 0, balls: 0, isOut: false, dismissal: null },
-                    ...rest.map(p => ({ ...p, runs: 0, balls: 0, isOut: false, dismissal: null }))
-                ];
+
+                state.startingInnings = 2;
+                state.battingOrder = [];
                 state.currentBatsmanIdx = 0;
-                state.dismissalRecords = [];
 
-                const bowlingTeamRoster = (state.bowlingTeam === state.userTeam) ? state.playingXI : (PLAYERS[state
-                    .bowlingTeam] || []);
-                bowlingTeamRoster.forEach(p => {
-                    state.bowlingStats[p.name] = { overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
-                });
-
-                selectBowlers();
-                state.currentOverIndex = 0;
-                state.ballsInOver = 0;
-                startNewOver();
-
-                gameMsg.textContent = `Innings 1 over! Target: ${state.target}`;
-                updateScoreboard();
-                startPowerplayForInnings();
-                drawPitch();
-                state.ball = null;
-                state.ballReady = false;
-                state.shotPlayed = false;
-
-                if (state.isAIBowling) {
-                    document.getElementById('bowl-controls-container').style.display = 'none';
-                    setBowlDpadEnabled(false);
-                    document.getElementById('bat-controls-container').style.display = 'block';
-                    setDpadEnabled(true);
-                    document.getElementById('field-controls-container').style.display = 'none';
-                    statusBanner.textContent = '🟢 YOU ARE BATTING';
-                    statusBanner.className = 'batting';
-                    gameMsg.textContent = 'AI is bowling. Watch the ball and tap to bat!';
-                    setTimeout(() => aiBowling(), 1500);
+                if (state.battingTeam === state.userTeam) {
+                    // Your team is batting second — pick your openers now.
+                    showOpenerScreen();
                 } else {
-                    document.getElementById('bat-controls-container').style.display = 'none';
-                    setDpadEnabled(false);
-                    statusBanner.textContent = '🔴 YOU ARE BOWLING';
-                    statusBanner.className = 'bowling';
-                    showBowlerModal();
-                    gameMsg.textContent = 'Select a bowler for this over from the modal.';
+                    state.battingOrder = buildOpponentBattingOrder(state.battingTeam);
+                    finalizeInningsStart();
                 }
             } else {
                 state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
