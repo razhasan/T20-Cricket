@@ -2036,12 +2036,38 @@
             return [...openers, ...rest].map(p => ({ ...p, runs: 0, balls: 0, isOut: false, dismissal: null }));
         }
 
-        // Auto-select the AI's bowler for a new over, avoiding the same bowler
-        // going twice in a row where possible.
+        // ---------- BOWLING RESTRICTIONS (standard cricket laws) ----------
+        // A bowler may never bowl two overs in a row, and may bowl at most a
+        // capped share of the innings. With only 1/2/5-over matches available
+        // here: 1 & 2-over matches allow a bowler to bowl only once (with only
+        // 1-2 overs total, the no-consecutive-overs rule already forces this);
+        // 5-over matches allow a bowler to return for a second (non-consecutive)
+        // over.
+        function maxOversPerBowler() {
+            return state.selectedOvers >= 5 ? 2 : 1;
+        }
+
+        function bowlerOversBowled(name) {
+            const stats = state.bowlingStats[name];
+            return stats ? Math.floor((stats.balls || 0) / 6) : 0;
+        }
+
+        function isBowlerEligible(name, prevBowlerName) {
+            if (name === prevBowlerName) return false; // no consecutive overs
+            return bowlerOversBowled(name) < maxOversPerBowler();
+        }
+
+        // Auto-select the AI's bowler for a new over, respecting standard
+        // cricket bowling restrictions (no consecutive overs, overs cap).
         function pickAIBowler() {
             if (!state.bowlingOrder || state.bowlingOrder.length === 0) return;
             const prevName = state.currentBowler ? state.currentBowler.name : null;
-            let candidates = state.bowlingOrder.filter(p => p.name !== prevName);
+            let candidates = state.bowlingOrder.filter(p => isBowlerEligible(p.name, prevName));
+            if (candidates.length === 0) {
+                // Nobody eligible under the cap (shouldn't normally happen) —
+                // fall back to anyone except the immediately preceding bowler.
+                candidates = state.bowlingOrder.filter(p => p.name !== prevName);
+            }
             if (candidates.length === 0) candidates = state.bowlingOrder;
             const pick = candidates[Math.floor(Math.random() * candidates.length)];
             state.currentBowler = { ...pick };
@@ -2464,7 +2490,10 @@
                     gameMsg.textContent = 'Select a bowler for this over from the modal.';
                 }
             } else {
-                state.dismissalRecords = [];
+                // Note: dismissalRecords is intentionally NOT reset here — it
+                // needs to keep innings 1's dismissals so Man of the Match can
+                // credit catches taken across the whole match, not just the
+                // second innings.
 
                 const bowlingTeamRoster = (state.bowlingTeam === state.userTeam) ? state.playingXI : (PLAYERS[state
                     .bowlingTeam] || []);
@@ -2537,24 +2566,47 @@
             const spinBowlers = bowlers.filter(p => p.role === 'AR');
 
             const allBowlers = [...paceBowlers, ...spinBowlers];
+            const prevBowlerName = state.currentBowler ? state.currentBowler.name : null;
+
+            // Safety net: if the strict rules would leave nobody selectable
+            // (shouldn't normally happen with a full squad), relax them step by
+            // step so the user is never stuck unable to pick a bowler.
+            let eligibilityCheck = p => isBowlerEligible(p.name, prevBowlerName);
+            if (!allBowlers.some(eligibilityCheck)) {
+                eligibilityCheck = p => p.name !== prevBowlerName;
+            }
+            if (!allBowlers.some(eligibilityCheck)) {
+                eligibilityCheck = () => true;
+            }
 
             allBowlers.forEach(p => {
                 const stats = state.bowlingStats[p.name] || { overs: 0, runs: 0, wickets: 0 };
                 const oversB = Math.floor((stats.balls || 0) / 6) + '.' + ((stats.balls || 0) % 6);
+                const eligible = eligibilityCheck(p);
                 const div = document.createElement('div');
-                div.className = 'bowler-option';
+                div.className = 'bowler-option' + (eligible ? '' : ' bowler-disabled');
                 div.dataset.name = p.name;
+                let reason = '';
+                if (!eligible) {
+                    reason = (p.name === prevBowlerName) ? "Bowled last over" : `Max ${maxOversPerBowler()} overs reached`;
+                }
                 div.innerHTML = `
                     <span>${p.emoji} ${p.name}</span>
-                    <span class="bowler-stats">${oversB}ov ${stats.runs || 0}r ${stats.wickets || 0}w</span>
+                    <span class="bowler-stats">${eligible ? `${oversB}ov ${stats.runs || 0}r ${stats.wickets || 0}w` : reason}</span>
                 `;
-                div.addEventListener('click', function() {
-                    document.querySelectorAll('.bowler-option').forEach(el => el.classList.remove(
-                    'selected-bowler'));
-                    this.classList.add('selected-bowler');
-                    selectedBowler = p.name;
-                    confirmBtn.disabled = false;
-                });
+                if (eligible) {
+                    div.addEventListener('click', function() {
+                        document.querySelectorAll('.bowler-option').forEach(el => el.classList.remove(
+                        'selected-bowler'));
+                        this.classList.add('selected-bowler');
+                        selectedBowler = p.name;
+                        confirmBtn.disabled = false;
+                    });
+                } else {
+                    div.style.opacity = '0.45';
+                    div.style.pointerEvents = 'none';
+                    div.style.cursor = 'not-allowed';
+                }
                 list.appendChild(div);
             });
 
@@ -3881,22 +3933,13 @@
                     checkPowerplayOverCrossing();
                     showResultBanner(`Over ${state.overs} Complete`, 'info');
                     state.currentOverIndex++;
-                    if (state.currentOverIndex < state.bowlingOrder.length) {
+                    // Only set up the next over/bowler if the innings isn't
+                    // finished. If this ball completed the innings' final
+                    // over, don't start another one — finishBattingTurn()
+                    // will end the innings once this ball's outcome (below)
+                    // is resolved.
+                    if (state.balls < state.selectedOvers * 6) {
                         startNewOver();
-                    } else {
-                        if (state.balls >= state.selectedOvers * 6) { endInnings(); return; }
-                        if (state.selectedOvers === 5) {
-                            let found = false;
-                            for (let i = 0; i < state.bowlingOrder.length; i++) {
-                                if (state.bowlingOrder[i].ballsBowled < state.bowlingOrder[i].maxBalls) {
-                                    state.currentOverIndex = i;
-                                    startNewOver();
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (!found) { endInnings(); return; }
-                        }
                     }
                 }
             }
@@ -4067,35 +4110,14 @@
                     checkPowerplayOverCrossing();
                     showResultBanner(`Over ${state.overs} Complete`, 'info');
                     state.currentOverIndex++;
-                    if (state.currentOverIndex < state.bowlingOrder.length) {
+                    // Only set up the next over/bowler if the innings isn't
+                    // finished. If this ball completed the innings' final
+                    // over, don't start another one — finishBattingTurn()
+                    // will end the innings once this ball's outcome (below)
+                    // is resolved. Either way, THIS ball (which just
+                    // completed the over) still gets bowled below.
+                    if (state.balls < state.selectedOvers * 6) {
                         startNewOver();
-                        // Show bowler modal for next over
-                        showBowlerModal();
-                        state.fieldSetForOver = false;
-                        document.getElementById('field-controls-container').style.display = 'block';
-                        document.getElementById('bowl-controls-container').style.display = 'block';
-                        setBowlDpadEnabled(true);
-                        return;
-                    } else {
-                        if (state.balls >= state.selectedOvers * 6) { endInnings(); return; }
-                        if (state.selectedOvers === 5) {
-                            let found = false;
-                            for (let i = 0; i < state.bowlingOrder.length; i++) {
-                                if (state.bowlingOrder[i].ballsBowled < state.bowlingOrder[i].maxBalls) {
-                                    state.currentOverIndex = i;
-                                    startNewOver();
-                                    showBowlerModal();
-                                    state.fieldSetForOver = false;
-                                    document.getElementById('field-controls-container').style.display = 'block';
-                                    document.getElementById('bowl-controls-container').style.display = 'block';
-                                    setBowlDpadEnabled(true);
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if (!found) { endInnings(); return; }
-                            return;
-                        }
                     }
                 }
             }
@@ -4559,12 +4581,37 @@
         //  MAN OF THE MATCH
         // ================================================================
         function computeMotm(winningTeam) {
-            const pool = [
-                ...(state.innings1BattingOrder || []),
-                ...(state.innings2BattingOrder || []),
-                ...(state.innings1BowlingOrder || []),
-                ...(state.innings2BowlingOrder || []),
-            ].filter(p => p && (!winningTeam || p.team === winningTeam));
+            let pool;
+            if (!winningTeam) {
+                pool = [
+                    ...(state.innings1BattingOrder || []),
+                    ...(state.innings2BattingOrder || []),
+                    ...(state.innings1BowlingOrder || []),
+                    ...(state.innings2BowlingOrder || []),
+                ];
+            } else if (winningTeam === state.innings1Team) {
+                // This team batted in innings 1 and bowled in innings 2.
+                pool = [
+                    ...(state.innings1BattingOrder || []),
+                    ...(state.innings2BowlingOrder || []),
+                ];
+            } else if (winningTeam === state.innings2Team) {
+                // This team bowled in innings 1 and batted in innings 2.
+                pool = [
+                    ...(state.innings2BattingOrder || []),
+                    ...(state.innings1BowlingOrder || []),
+                ];
+            } else {
+                // Team info unavailable — fall back to everyone rather than
+                // silently defaulting to an arbitrary player.
+                pool = [
+                    ...(state.innings1BattingOrder || []),
+                    ...(state.innings2BattingOrder || []),
+                    ...(state.innings1BowlingOrder || []),
+                    ...(state.innings2BowlingOrder || []),
+                ];
+            }
+            pool = pool.filter(Boolean);
 
             if (pool.length === 0) {
                 const fallback = state.playingXI[0] || { name: 'Player' };
