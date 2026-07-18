@@ -1074,6 +1074,27 @@
             color: #aaa;
             font-weight: 400;
         }
+        .bowler-option .bowler-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 3px;
+        }
+        .bowler-option .bowler-specialty {
+            font-size: 0.62rem;
+            font-weight: 700;
+            padding: 1px 8px;
+            border-radius: 10px;
+            letter-spacing: 0.3px;
+        }
+        .bowler-option .bowler-specialty.spec-fast {
+            background: rgba(244, 67, 54, 0.18);
+            color: #ff8a65;
+        }
+        .bowler-option .bowler-specialty.spec-spin {
+            background: rgba(33, 150, 243, 0.18);
+            color: #64b5f6;
+        }
         .bowler-option .bowler-stats span {
             margin: 0 4px;
         }
@@ -1359,7 +1380,7 @@
     <!-- CREDIT SCREEN -->
     <div id="creditScreen">
         <div class="credit-card">
-            <button class="version-badge" id="version-badge-btn" onclick="document.getElementById('versionModal').classList.add('show')">v2.1</button>
+            <button class="version-badge" id="version-badge-btn" onclick="document.getElementById('versionModal').classList.add('show')">v2.2</button>
             <div class="credit-photo"><img src="images/credit.JPG" alt="Developer Photo"></div>
             <div class="credit-title">Cricket Legends Arena</div>
             <div class="credit-sub">Ultimate T20 Challenge</div>
@@ -1372,8 +1393,9 @@
     <div id="versionModal">
         <div class="version-card">
             <h3>🏏 Cricket Legends Arena</h3>
-            <div class="version-current">Current version: v2.1</div>
+            <div class="version-current">Current version: v2.2</div>
             <ul>
+                <li><strong>v2.2</strong> — Bowler-selection cards now show each bowler's exact specialty (e.g. Leg-spin, Left-arm Fast) with a color-coded badge; batting/all-rounder/bowler order fixed everywhere so specialist batters and openers always list first, ahead of bowlers.</li>
                 <li><strong>v2.1</strong> — Fixed bowler specialties so spinners and pace bowlers deliver the ball type they actually bowl in real life; sound-debug tools hidden from players (still available under the hood).</li>
                 <li><strong>v2.0</strong> — Sound effects overhaul, on-screen debug logging, bowler selection modal.</li>
                 <li><strong>v1.0</strong> — Initial release: batting, bowling, fielding and full T20 match flow.</li>
@@ -1653,21 +1675,21 @@
                 { name: "Rinku Singh", role: "BAT", emoji: "🏏" },
                 { name: "Sanju Samson", role: "WK", emoji: "🧤" },
                 { name: "Ishan Kishan", role: "WK", emoji: "🧤" },
-                { name: "Abhishek Sharma", role: "AR", emoji: "⚡", bowlType: "spin" },     // right-arm off-spin
-                { name: "Shivam Dube", role: "AR", emoji: "⚡", bowlType: "fast" },         // left-arm medium pace
-                { name: "Axar Patel", role: "AR", emoji: "⚡", bowlType: "spin" },          // left-arm orthodox spin
-                { name: "Washington Sundar", role: "AR", emoji: "⚡", bowlType: "spin" },   // off-spin
-                { name: "Suryansh Shedge", role: "AR", emoji: "⚡", bowlType: "fast" },     // right-arm medium-fast
-                { name: "Jasprit Bumrah", role: "BOWL", emoji: "🎯", bowlType: "fast" },
-                { name: "Arshdeep Singh", role: "BOWL", emoji: "🎯", bowlType: "fast" },
-                { name: "Harshit Rana", role: "BOWL", emoji: "🎯", bowlType: "fast" },
-                { name: "Prasidh Krishna", role: "BOWL", emoji: "🎯", bowlType: "fast" },
-                { name: "Varun Chakaravarthy", role: "BOWL", emoji: "🎯", bowlType: "spin" }, // mystery spin
-                { name: "Ravi Bishnoi", role: "BOWL", emoji: "🎯", bowlType: "spin" },      // leg-spin
-                { name: "Prince Yadav", role: "BOWL", emoji: "🎯", bowlType: "fast" }
+                { name: "Abhishek Sharma", role: "AR", emoji: "⚡", bowlType: "spin", bowlStyle: "Off-spin" },
+                { name: "Shivam Dube", role: "AR", emoji: "⚡", bowlType: "fast", bowlStyle: "Left-arm Medium" },
+                { name: "Axar Patel", role: "AR", emoji: "⚡", bowlType: "spin", bowlStyle: "Left-arm Orthodox" },
+                { name: "Washington Sundar", role: "AR", emoji: "⚡", bowlType: "spin", bowlStyle: "Off-spin" },
+                { name: "Suryansh Shedge", role: "AR", emoji: "⚡", bowlType: "fast", bowlStyle: "Medium-fast" },
+                { name: "Jasprit Bumrah", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Fast" },
+                { name: "Arshdeep Singh", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Left-arm Fast" },
+                { name: "Harshit Rana", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Fast-medium" },
+                { name: "Prasidh Krishna", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Fast" },
+                { name: "Varun Chakaravarthy", role: "BOWL", emoji: "🎯", bowlType: "spin", bowlStyle: "Mystery Spin" },
+                { name: "Ravi Bishnoi", role: "BOWL", emoji: "🎯", bowlType: "spin", bowlStyle: "Leg-spin" },
+                { name: "Prince Yadav", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Fast" }
             ],
             pakistan: [
-                { name: "Salman Ali Agha (c)", role: "AR", emoji: "⚡", bowlType: "spin" }, // off-spin
+                { name: "Salman Ali Agha (c)", role: "AR", emoji: "⚡", bowlType: "spin", bowlStyle: "Off-spin" },
                 { name: "Babar Azam", role: "BAT", emoji: "🏏" },
                 { name: "Fakhar Zaman", role: "BAT", emoji: "🏏" },
                 { name: "Saim Ayub", role: "BAT", emoji: "🏏" },
@@ -1675,15 +1697,15 @@
                 { name: "Khawaja Nafay", role: "WK", emoji: "🧤" },
                 { name: "Usman Khan", role: "WK", emoji: "🧤" },
                 { name: "Mohammad Rizwan", role: "WK", emoji: "🧤" },
-                { name: "Faheem Ashraf", role: "AR", emoji: "⚡", bowlType: "fast" },       // right-arm medium-fast
-                { name: "Mohammad Nawaz", role: "AR", emoji: "⚡", bowlType: "spin" },      // left-arm spin
-                { name: "Shadab Khan", role: "AR", emoji: "⚡", bowlType: "spin" },         // leg-spin
-                { name: "Shaheen Afridi", role: "BOWL", emoji: "🎯", bowlType: "fast" },
-                { name: "Naseem Shah", role: "BOWL", emoji: "🎯", bowlType: "fast" },
-                { name: "Abrar Ahmed", role: "BOWL", emoji: "🎯", bowlType: "spin" },       // leg-spin / mystery spin
-                { name: "Mohammad Salman Mirza", role: "BOWL", emoji: "🎯", bowlType: "fast" }, // left-arm fast
-                { name: "Usman Tariq", role: "BOWL", emoji: "🎯", bowlType: "spin" },       // off-spin
-                { name: "Haris Rauf", role: "BOWL", emoji: "🎯", bowlType: "fast" }
+                { name: "Faheem Ashraf", role: "AR", emoji: "⚡", bowlType: "fast", bowlStyle: "Medium-fast" },
+                { name: "Mohammad Nawaz", role: "AR", emoji: "⚡", bowlType: "spin", bowlStyle: "Left-arm Spin" },
+                { name: "Shadab Khan", role: "AR", emoji: "⚡", bowlType: "spin", bowlStyle: "Leg-spin" },
+                { name: "Shaheen Afridi", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Left-arm Fast" },
+                { name: "Naseem Shah", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Fast" },
+                { name: "Abrar Ahmed", role: "BOWL", emoji: "🎯", bowlType: "spin", bowlStyle: "Leg-spin / Mystery" },
+                { name: "Mohammad Salman Mirza", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Left-arm Fast" },
+                { name: "Usman Tariq", role: "BOWL", emoji: "🎯", bowlType: "spin", bowlStyle: "Off-spin" },
+                { name: "Haris Rauf", role: "BOWL", emoji: "🎯", bowlType: "fast", bowlStyle: "Fast" }
             ]
         };
 
@@ -2203,7 +2225,7 @@
             }
             const openerNames = openers.map(p => p.name);
             const rest = xi.filter(p => !openerNames.includes(p.name));
-            const orderScore = p => (p.role === 'BAT' ? 0 : p.role === 'AR' ? 1 : p.role === 'WK' ? 2 : 3);
+            const orderScore = battingRoleScore;
             rest.sort((a, b) => orderScore(a) - orderScore(b));
             return [...openers, ...rest].map(p => ({ ...p, runs: 0, balls: 0, isOut: false, dismissal: null }));
         }
@@ -2378,6 +2400,17 @@
             showScreen('selection-screen');
         });
 
+        // Batting-relevant role order: specialist batters and keeper-batters are
+        // shown/considered first, then all-rounders, then bowlers — this keeps
+        // opener selection (and any other roster list) showing batters first
+        // instead of whichever order players happened to be tapped/picked in.
+        function battingRoleScore(p) {
+            return p.role === 'BAT' ? 0 : p.role === 'WK' ? 1 : p.role === 'AR' ? 2 : 3;
+        }
+        function sortPlayingXIByBattingRole() {
+            state.playingXI.sort((a, b) => battingRoleScore(a) - battingRoleScore(b));
+        }
+
         function renderPlayerSelection() {
             playerGrid.innerHTML = '';
             state.allPlayers.forEach((p, idx) => {
@@ -2433,12 +2466,14 @@
             while (pick.length < 11 && remaining.length) pick.push(remaining.shift());
             pick.slice(0, 11).forEach(p => { p.selected = true;
                 state.playingXI.push({ ...p }); });
+            sortPlayingXIByBattingRole();
             renderPlayerSelection();
             gameMsg.textContent = '🎲 Auto-selected XI!';
         });
 
         document.getElementById('btn-selection-done').addEventListener('click', function() {
             if (state.playingXI.length !== 11) return;
+            sortPlayingXIByBattingRole();
             showTossScreen();
         });
 
@@ -2763,8 +2798,13 @@
                 if (!eligible) {
                     reason = (p.name === prevBowlerName) ? "Bowled last over" : `Max ${maxOversPerBowler()} overs reached`;
                 }
+                const specType = p.bowlType || 'fast';
+                const specLabel = p.bowlStyle || (specType === 'spin' ? 'Spin' : 'Fast');
                 div.innerHTML = `
-                    <span>${p.emoji} ${p.name}</span>
+                    <div class="bowler-info">
+                        <span>${p.emoji} ${p.name}</span>
+                        <span class="bowler-specialty spec-${specType}">${specLabel}</span>
+                    </div>
                     <span class="bowler-stats">${eligible ? `${oversB}ov ${stats.runs || 0}r ${stats.wickets || 0}w` : reason}</span>
                 `;
                 if (eligible) {
@@ -2836,6 +2876,11 @@
             if (!state.bowlingStats[player.name]) {
                 state.bowlingStats[player.name] = { overs: 0, balls: 0, runs: 0, wickets: 0, maidens: 0 };
             }
+            // Lock the Fast/Spin type (and its toggle buttons) to this bowler's
+            // real specialty, so e.g. Usman Tariq always shows as Spin.
+            state.bowlType = player.bowlType || 'fast';
+            document.querySelectorAll('[data-bowl]').forEach(b =>
+                b.classList.toggle('active', b.dataset.bowl === state.bowlType));
             // Update display
             const stats = state.bowlingStats[player.name] || {};
             const oversB = Math.floor((stats.balls || 0) / 6) + '.' + ((stats.balls || 0) % 6);
@@ -4891,6 +4936,13 @@
         document.querySelectorAll('[data-bowl]').forEach(btn => {
             btn.addEventListener('click', function() {
                 if (state.isAIBowling || state.isAIBatting) return;
+                // A bowler can only bowl their real specialty (e.g. a spinner
+                // like Usman Tariq can't switch to "Fast").
+                const lockedType = state.currentBowler ? (state.currentBowler.bowlType || 'fast') : null;
+                if (lockedType && this.dataset.bowl !== lockedType) {
+                    gameMsg.textContent = `${state.currentBowler.name} only bowls ${lockedType === 'fast' ? 'fast' : 'spin'}.`;
+                    return;
+                }
                 document.querySelectorAll('[data-bowl]').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 state.bowlType = this.dataset.bowl;
@@ -4938,8 +4990,8 @@
             deliverBallUser(speed > 70, speed);
         });
 
-        // Version-history modal (opened via the "v2.1" badge on the credit card)
-        const GAME_VERSION = '2.1';
+        // Version-history modal (opened via the "v2.2" badge on the credit card)
+        const GAME_VERSION = '2.2';
         document.getElementById('versionModal').addEventListener('click', function(e) {
             if (e.target === this) this.classList.remove('show');
         });
