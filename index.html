@@ -1224,10 +1224,75 @@
             justify-content: center;
         }
         .credit-card {
+            position: relative;
             text-align: center;
             color: white;
             padding: 30px;
             max-width: 420px;
+        }
+        /* ---- Version badge (top-right of credit card) ---- */
+        .version-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(244, 211, 94, 0.15);
+            color: #f4d35e;
+            border: 1px solid rgba(244, 211, 94, 0.6);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: 0.15s;
+        }
+        .version-badge:active {
+            transform: scale(0.94);
+            background: rgba(244, 211, 94, 0.3);
+        }
+        /* ---- Version history modal ---- */
+        #versionModal {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #versionModal.show { display: flex; }
+        .version-card {
+            background: linear-gradient(135deg, #102c44, #071421);
+            border: 1px solid rgba(244, 211, 94, 0.5);
+            border-radius: 18px;
+            padding: 24px;
+            max-width: 360px;
+            width: 85%;
+            color: #fff;
+            text-align: left;
+            box-shadow: 0 0 30px rgba(0,0,0,0.6);
+        }
+        .version-card h3 {
+            color: #f4d35e;
+            margin: 0 0 4px;
+            font-size: 20px;
+        }
+        .version-card .version-current {
+            font-size: 13px;
+            color: #9fd39f;
+            margin-bottom: 14px;
+        }
+        .version-card ul {
+            margin: 0 0 18px;
+            padding-left: 18px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #d9e4ee;
+        }
+        .version-card .credit-btn {
+            width: 100%;
+            padding: 10px 0;
+            font-size: 16px;
         }
         .credit-photo {
             width: 220px;
@@ -1294,11 +1359,26 @@
     <!-- CREDIT SCREEN -->
     <div id="creditScreen">
         <div class="credit-card">
+            <button class="version-badge" id="version-badge-btn" onclick="document.getElementById('versionModal').classList.add('show')">v2.1</button>
             <div class="credit-photo"><img src="images/credit.JPG" alt="Developer Photo"></div>
             <div class="credit-title">Cricket Legends Arena</div>
             <div class="credit-sub">Ultimate T20 Challenge</div>
             <div class="credit-dev">Developed by Hassan Raza</div>
             <button class="credit-btn" onclick="document.getElementById('creditScreen').style.display='none'">Start Game</button>
+        </div>
+    </div>
+
+    <!-- VERSION HISTORY MODAL -->
+    <div id="versionModal">
+        <div class="version-card">
+            <h3>🏏 Cricket Legends Arena</h3>
+            <div class="version-current">Current version: v2.1</div>
+            <ul>
+                <li><strong>v2.1</strong> — Fixed bowler specialties so spinners and pace bowlers deliver the ball type they actually bowl in real life; sound-debug tools hidden from players (still available under the hood).</li>
+                <li><strong>v2.0</strong> — Sound effects overhaul, on-screen debug logging, bowler selection modal.</li>
+                <li><strong>v1.0</strong> — Initial release: batting, bowling, fielding and full T20 match flow.</li>
+            </ul>
+            <button class="credit-btn" onclick="document.getElementById('versionModal').classList.remove('show')">Close</button>
         </div>
     </div>
 
@@ -1573,21 +1653,21 @@
                 { name: "Rinku Singh", role: "BAT", emoji: "🏏" },
                 { name: "Sanju Samson", role: "WK", emoji: "🧤" },
                 { name: "Ishan Kishan", role: "WK", emoji: "🧤" },
-                { name: "Abhishek Sharma", role: "AR", emoji: "⚡" },
-                { name: "Shivam Dube", role: "AR", emoji: "⚡" },
-                { name: "Axar Patel", role: "AR", emoji: "⚡" },
-                { name: "Washington Sundar", role: "AR", emoji: "⚡" },
-                { name: "Suryansh Shedge", role: "AR", emoji: "⚡" },
-                { name: "Jasprit Bumrah", role: "BOWL", emoji: "🎯" },
-                { name: "Arshdeep Singh", role: "BOWL", emoji: "🎯" },
-                { name: "Harshit Rana", role: "BOWL", emoji: "🎯" },
-                { name: "Prasidh Krishna", role: "BOWL", emoji: "🎯" },
-                { name: "Varun Chakaravarthy", role: "BOWL", emoji: "🎯" },
-                { name: "Ravi Bishnoi", role: "BOWL", emoji: "🎯" },
-                { name: "Prince Yadav", role: "BOWL", emoji: "🎯" }
+                { name: "Abhishek Sharma", role: "AR", emoji: "⚡", bowlType: "spin" },     // right-arm off-spin
+                { name: "Shivam Dube", role: "AR", emoji: "⚡", bowlType: "fast" },         // left-arm medium pace
+                { name: "Axar Patel", role: "AR", emoji: "⚡", bowlType: "spin" },          // left-arm orthodox spin
+                { name: "Washington Sundar", role: "AR", emoji: "⚡", bowlType: "spin" },   // off-spin
+                { name: "Suryansh Shedge", role: "AR", emoji: "⚡", bowlType: "fast" },     // right-arm medium-fast
+                { name: "Jasprit Bumrah", role: "BOWL", emoji: "🎯", bowlType: "fast" },
+                { name: "Arshdeep Singh", role: "BOWL", emoji: "🎯", bowlType: "fast" },
+                { name: "Harshit Rana", role: "BOWL", emoji: "🎯", bowlType: "fast" },
+                { name: "Prasidh Krishna", role: "BOWL", emoji: "🎯", bowlType: "fast" },
+                { name: "Varun Chakaravarthy", role: "BOWL", emoji: "🎯", bowlType: "spin" }, // mystery spin
+                { name: "Ravi Bishnoi", role: "BOWL", emoji: "🎯", bowlType: "spin" },      // leg-spin
+                { name: "Prince Yadav", role: "BOWL", emoji: "🎯", bowlType: "fast" }
             ],
             pakistan: [
-                { name: "Salman Ali Agha (c)", role: "AR", emoji: "⚡" },
+                { name: "Salman Ali Agha (c)", role: "AR", emoji: "⚡", bowlType: "spin" }, // off-spin
                 { name: "Babar Azam", role: "BAT", emoji: "🏏" },
                 { name: "Fakhar Zaman", role: "BAT", emoji: "🏏" },
                 { name: "Saim Ayub", role: "BAT", emoji: "🏏" },
@@ -1595,15 +1675,15 @@
                 { name: "Khawaja Nafay", role: "WK", emoji: "🧤" },
                 { name: "Usman Khan", role: "WK", emoji: "🧤" },
                 { name: "Mohammad Rizwan", role: "WK", emoji: "🧤" },
-                { name: "Faheem Ashraf", role: "AR", emoji: "⚡" },
-                { name: "Mohammad Nawaz", role: "AR", emoji: "⚡" },
-                { name: "Shadab Khan", role: "AR", emoji: "⚡" },
-                { name: "Shaheen Afridi", role: "BOWL", emoji: "🎯" },
-                { name: "Naseem Shah", role: "BOWL", emoji: "🎯" },
-                { name: "Abrar Ahmed", role: "BOWL", emoji: "🎯" },
-                { name: "Mohammad Salman Mirza", role: "BOWL", emoji: "🎯" },
-                { name: "Usman Tariq", role: "BOWL", emoji: "🎯" },
-                { name: "Haris Rauf", role: "BOWL", emoji: "🎯" }
+                { name: "Faheem Ashraf", role: "AR", emoji: "⚡", bowlType: "fast" },       // right-arm medium-fast
+                { name: "Mohammad Nawaz", role: "AR", emoji: "⚡", bowlType: "spin" },      // left-arm spin
+                { name: "Shadab Khan", role: "AR", emoji: "⚡", bowlType: "spin" },         // leg-spin
+                { name: "Shaheen Afridi", role: "BOWL", emoji: "🎯", bowlType: "fast" },
+                { name: "Naseem Shah", role: "BOWL", emoji: "🎯", bowlType: "fast" },
+                { name: "Abrar Ahmed", role: "BOWL", emoji: "🎯", bowlType: "spin" },       // leg-spin / mystery spin
+                { name: "Mohammad Salman Mirza", role: "BOWL", emoji: "🎯", bowlType: "fast" }, // left-arm fast
+                { name: "Usman Tariq", role: "BOWL", emoji: "🎯", bowlType: "spin" },       // off-spin
+                { name: "Haris Rauf", role: "BOWL", emoji: "🎯", bowlType: "fast" }
             ]
         };
 
@@ -1991,7 +2071,9 @@
             const btn = document.createElement('button');
             btn.id = 'sfx-debug-toggle-btn';
             btn.textContent = '🐞';
-            btn.style.cssText = 'position:absolute;top:10px;right:50px;z-index:50;' +
+            // Debugging is fully wired up below but hidden from players for now.
+            // To re-enable the visible 🐞 button, just remove "display:none;" here.
+            btn.style.cssText = 'display:none;position:absolute;top:10px;right:50px;z-index:50;' +
                 'background:#2a4055;color:#fff;border:none;border-radius:50%;' +
                 'width:34px;height:34px;font-size:1rem;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.4);';
             btn.addEventListener('click', function() {
@@ -2651,9 +2733,10 @@
             list.innerHTML = '';
             let selectedBowler = null;
 
-            // Show pace and spin sections (just visual grouping)
-            const paceBowlers = bowlers.filter(p => p.role === 'BOWL');
-            const spinBowlers = bowlers.filter(p => p.role === 'AR');
+            // Show pace and spin sections (just visual grouping) — based on each
+            // player's real-life bowling specialty (bowlType), not their role tag.
+            const paceBowlers = bowlers.filter(p => (p.bowlType || 'fast') === 'fast');
+            const spinBowlers = bowlers.filter(p => p.bowlType === 'spin');
 
             const allBowlers = [...paceBowlers, ...spinBowlers];
             const prevBowlerName = state.currentBowler ? state.currentBowler.name : null;
@@ -3992,8 +4075,10 @@
                 SoundFX.stopWelcomeMusic(); }
             runBowlerRunUp();
 
-            const types = ['fast', 'spin'];
-            state.bowlType = random(types);
+            // Use the current bowler's real specialty instead of a random coin-flip,
+            // so a spinner like Abrar Ahmed always bowls spin, a pacer like Haris
+            // Rauf always bowls fast, etc.
+            state.bowlType = (state.currentBowler && state.currentBowler.bowlType) || random(['fast', 'spin']);
             const fastVars = ['normal', 'swing-in', 'swing-out', 'reverse', 'leg-cutter', 'off-cutter'];
             const spinVars = ['normal', 'googly', 'doosra', 'carrom'];
             state.variation = random(state.bowlType === 'fast' ? fastVars : spinVars);
@@ -4842,7 +4927,8 @@
             if (!state.currentBowler) { gameMsg.textContent = '⚠️ Select a bowler first!';
                 showBowlerModal(); return; }
             if (!state.fieldSetForOver) { lockFieldForOver(); }
-            state.bowlType = random(['fast', 'spin']);
+            // Match the auto-bowl type to the selected bowler's real specialty.
+            state.bowlType = (state.currentBowler && state.currentBowler.bowlType) || random(['fast', 'spin']);
             document.querySelectorAll('[data-bowl]').forEach(b => b.classList.toggle('active', b.dataset.bowl === state
                 .bowlType));
             const speed = 20 + Math.random() * 60;
@@ -4850,6 +4936,12 @@
                 `⚡ Auto speed: ${Math.round(speed)}% ${speed>70?'— NO-BALL!':''}`;
             document.getElementById('needle-no-ball-text').style.color = speed > 70 ? '#f44336' : '#4caf50';
             deliverBallUser(speed > 70, speed);
+        });
+
+        // Version-history modal (opened via the "v2.1" badge on the credit card)
+        const GAME_VERSION = '2.1';
+        document.getElementById('versionModal').addEventListener('click', function(e) {
+            if (e.target === this) this.classList.remove('show');
         });
 
         // Close modal if clicked outside
