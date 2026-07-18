@@ -1380,7 +1380,7 @@
     <!-- CREDIT SCREEN -->
     <div id="creditScreen">
         <div class="credit-card">
-            <button class="version-badge" id="version-badge-btn" onclick="document.getElementById('versionModal').classList.add('show')">v2.2</button>
+            <button class="version-badge" id="version-badge-btn" onclick="document.getElementById('versionModal').classList.add('show')">v2.3</button>
             <div class="credit-photo"><img src="images/credit.JPG" alt="Developer Photo"></div>
             <div class="credit-title">Cricket Legends Arena</div>
             <div class="credit-sub">Ultimate T20 Challenge</div>
@@ -1393,8 +1393,9 @@
     <div id="versionModal">
         <div class="version-card">
             <h3>🏏 Cricket Legends Arena</h3>
-            <div class="version-current">Current version: v2.2</div>
+            <div class="version-current">Current version: v2.3</div>
             <ul>
+                <li><strong>v2.3</strong> — Fixed a bug where the game would get stuck on the opener-selection screen after picking your openers for the 2nd innings (batting screen now loads correctly). Fixed the end-of-match scorecard so bowling figures (overs, runs, wickets) now show up for both teams instead of "No bowling data".</li>
                 <li><strong>v2.2</strong> — Bowler-selection cards now show each bowler's exact specialty (e.g. Leg-spin, Left-arm Fast) with a color-coded badge; batting/all-rounder/bowler order fixed everywhere so specialist batters and openers always list first, ahead of bowlers.</li>
                 <li><strong>v2.1</strong> — Fixed bowler specialties so spinners and pace bowlers deliver the ball type they actually bowl in real life; sound-debug tools hidden from players (still available under the hood).</li>
                 <li><strong>v2.0</strong> — Sound effects overhaul, on-screen debug logging, bowler selection modal.</li>
@@ -2715,6 +2716,7 @@
 
                 gameMsg.textContent = `Innings 1 over! Target: ${state.target}`;
                 updateScoreboard();
+                showScreen('game-screen');
                 startPowerplayForInnings();
                 drawPitch();
                 state.ball = null;
@@ -4642,6 +4644,22 @@
         // ================================================================
         //  END INNINGS
         // ================================================================
+        // Snapshot the current bowlingOrder, merging in each bowler's real
+        // figures from state.bowlingStats (overs/runs/wickets are tracked
+        // there per-ball, not on the bowlingOrder player objects themselves).
+        function snapshotBowlingOrder() {
+            return (state.bowlingOrder || []).map(b => {
+                const stats = state.bowlingStats[b.name] || {};
+                return {
+                    ...b,
+                    ballsBowled: stats.balls || 0,
+                    runsConceded: stats.runs || 0,
+                    wickets: stats.wickets || 0,
+                    maidens: stats.maidens || 0
+                };
+            });
+        }
+
         function endInnings() {
             if (state.currentInnings === 1) {
                 state.innings1 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
@@ -4649,7 +4667,7 @@
                 state.currentInnings = 2;
                 state.innings1Team = state.battingTeam;
                 state.innings1BattingOrder = state.battingOrder.map(b => ({ ...b }));
-                state.innings1BowlingOrder = state.bowlingOrder.map(b => ({ ...b }));
+                state.innings1BowlingOrder = snapshotBowlingOrder();
 
                 const temp = state.battingTeam;
                 state.battingTeam = state.bowlingTeam;
@@ -4679,7 +4697,7 @@
                 state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.innings2Team = state.battingTeam;
                 state.innings2BattingOrder = state.battingOrder.map(b => ({ ...b }));
-                state.innings2BowlingOrder = state.bowlingOrder.map(b => ({ ...b }));
+                state.innings2BowlingOrder = snapshotBowlingOrder();
 
                 const team1 = state.innings1Team;
                 const team2 = state.innings2Team;
@@ -4733,12 +4751,12 @@
                 state.innings1 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.innings1Team = state.battingTeam;
                 state.innings1BattingOrder = state.battingOrder.map(b => ({ ...b }));
-                state.innings1BowlingOrder = state.bowlingOrder.map(b => ({ ...b }));
+                state.innings1BowlingOrder = snapshotBowlingOrder();
             } else {
                 state.innings2 = { runs: state.runs, wickets: state.wickets, balls: state.balls, overs: state.overs };
                 state.innings2Team = state.battingTeam;
                 state.innings2BattingOrder = state.battingOrder.map(b => ({ ...b }));
-                state.innings2BowlingOrder = state.bowlingOrder.map(b => ({ ...b }));
+                state.innings2BowlingOrder = snapshotBowlingOrder();
             }
 
             const t1 = state.innings1Team || state.selectedTeam;
@@ -4991,7 +5009,7 @@
         });
 
         // Version-history modal (opened via the "v2.2" badge on the credit card)
-        const GAME_VERSION = '2.2';
+        const GAME_VERSION = '2.3';
         document.getElementById('versionModal').addEventListener('click', function(e) {
             if (e.target === this) this.classList.remove('show');
         });
